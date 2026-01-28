@@ -1,0 +1,232 @@
+'use server';
+
+import { createClient } from '@/lib/supabase/server';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import type { SignUpFormData, LoginFormData } from '@/lib/validations';
+
+export async function signUp(formData: SignUpFormData) {
+  const supabase = await createClient();
+
+  const { email, password, username, role } = formData;
+
+  // 1. Create auth user
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        username,
+        role,
+      },
+    },
+  });
+
+  if (authError) {
+    return { error: authError.message };
+  }
+
+  if (!authData.user) {
+    return { error: 'Failed to create user' };
+  }
+
+  // 2. Create user profile
+  const { error: userError } = await supabase.from('users').insert({
+    id: authData.user.id,
+    email,
+    username,
+    role,
+    is_verified: false,
+  });
+
+  if (userError) {
+    return { error: userError.message };
+  }
+
+  return { success: true, userId: authData.user.id };
+}
+
+export async function login(formData: LoginFormData) {
+  const supabase = await createClient();
+
+  const { error } = await supabase.auth.signInWithPassword({
+    email: formData.email,
+    password: formData.password,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  // Check if user is verified
+  const { data: user } = await supabase.auth.getUser();
+  if (user.user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role, is_verified')
+      .eq('id', user.user.id)
+      .single();
+
+    if (profile && !profile.is_verified) {
+      // Redirect to onboarding
+      const onboardingPath = profile.role === 'shelter' 
+        ? '/onboarding/shelter' 
+        : '/onboarding/adopter';
+      redirect(onboardingPath);
+    }
+
+    // Redirect to dashboard
+    const dashboardPath = profile?.role === 'shelter' ? '/shelter' : '/dashboard';
+    redirect(dashboardPath);
+  }
+
+  return { success: true };
+}
+
+export async function logout() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect('/auth/login');
+}
+
+export async function clientLogout() {
+  'use server';
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  revalidatePath('/', 'layout');
+  return { success: true };
+}
+
+export async function getSession() {
+  const supabase = await createClient();
+  
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    return null;
+  }
+
+  const { data: user } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+
+  return { session, user };
+}
+
+export async function getCurrentUser() {
+  const supabase = await createClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    return null;
+  }
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  return profile;
+}
+
+export async function getUserProfile(userId: string) {
+  const supabase = await createClient();
+  
+  const { data: user } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (!user) {
+    return null;
+  }
+
+  // Fetch role-specific profile
+  if (user.role === 'shelter') {
+    const { data: shelterProfile } = await supabase
+      .from('shelter_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    return { ...user, shelter_profile: shelterProfile };
+  } else {
+    const { data: adopterProfile } = await supabase
+      .from('adopter_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    return { ...user, adopter_profile: adopterProfile };
+  }
+}
+
+export async function updateUserProfile(userId: string, data: Partial<{
+  username: string;
+  bio: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  avatar_url: string;
+}>) {
+  const supabase = await createClient();
+  
+  const { error } = await supabase
+    .from('users')
+    .update(data)
+    .eq('id', userId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath('/profile');
+  return { success: true };
+}
+
+export async function checkUsernameAvailability(username: string) {
+  const supabase = await createClient();
+  
+  const { data } = await supabase
+    .from('users')
+    .select('username')
+    .eq('username', username)
+    .single();
+
+  return { available: !data };
+}
+
+export async function resetPassword(email: string) {
+  const supabase = await createClient();
+  
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function updatePassword(newPassword: string) {
+  const supabase = await createClient();
+  
+  const { error } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}

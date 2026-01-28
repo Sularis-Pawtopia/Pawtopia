@@ -1,0 +1,322 @@
+// Pawtopia Database Schema - dbdiagram.io format
+// Paste this at https://dbdiagram.io/d
+
+Table users {
+  id uuid [pk, ref: > auth.users.id]
+  email text [unique, not null]
+  username text [unique, not null]
+  role user_role [not null, default: 'adopter']
+  is_verified boolean [default: false]
+  avatar_url text
+  bio text
+  phone text
+  address text
+  city text
+  state text
+  zip_code text
+  country text [default: 'USA']
+  fcm_token text
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+  
+  indexes {
+    role
+    email
+    username
+  }
+}
+
+Table shelter_profiles {
+  id uuid [pk]
+  user_id uuid [ref: - users.id, unique, not null]
+  shelter_name text [not null]
+  description text
+  website text
+  registration_number text
+  license_document_url text
+  verification_documents jsonb
+  operating_hours jsonb
+  capacity integer
+  social_media jsonb
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table adopter_profiles {
+  id uuid [pk]
+  user_id uuid [ref: - users.id, unique, not null]
+  first_name text [not null]
+  last_name text [not null]
+  date_of_birth date
+  occupation text
+  income_range text
+  household_size integer
+  has_children boolean
+  has_other_pets boolean
+  pet_experience text
+  home_type text
+  home_ownership text
+  yard_size text
+  home_photos jsonb
+  valid_id_urls jsonb
+  references jsonb
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table posts {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  post_type post_type [not null]
+  title text
+  description text [not null]
+  media_urls jsonb
+  tags text[]
+  like_count integer [default: 0]
+  comment_count integer [default: 0]
+  view_count integer [default: 0]
+  is_active boolean [default: true]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+  
+  indexes {
+    user_id
+    post_type
+    (created_at, desc)
+    is_active
+  }
+}
+
+Table pets {
+  id uuid [pk]
+  post_id uuid [ref: - posts.id, unique, not null]
+  shelter_id uuid [ref: > users.id, not null]
+  name text [not null]
+  species text [not null]
+  breed text
+  age_years integer
+  age_months integer
+  gender text
+  size text
+  color text
+  weight decimal(5,2)
+  status pet_status [default: 'available']
+  is_vaccinated boolean [default: false]
+  is_spayed_neutered boolean [default: false]
+  medical_history text
+  temperament text[]
+  good_with_kids boolean
+  good_with_dogs boolean
+  good_with_cats boolean
+  energy_level text
+  special_needs text
+  adoption_fee decimal(10,2)
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+  
+  indexes {
+    shelter_id
+    status
+    species
+    (created_at, desc)
+  }
+}
+
+Table lost_pets {
+  id uuid [pk]
+  post_id uuid [ref: - posts.id, unique, not null]
+  user_id uuid [ref: > users.id, not null]
+  pet_name text [not null]
+  species text [not null]
+  breed text
+  age_years integer
+  color text
+  last_seen_location text [not null]
+  last_seen_date date [not null]
+  reward decimal(10,2)
+  contact_phone text [not null]
+  contact_email text
+  status lost_pet_status [default: 'lost']
+  found_date date
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+  
+  indexes {
+    user_id
+    status
+    (last_seen_date, desc)
+  }
+}
+
+Table events {
+  id uuid [pk]
+  post_id uuid [ref: - posts.id, unique, not null]
+  shelter_id uuid [ref: > users.id, not null]
+  event_name text [not null]
+  event_date timestamptz [not null]
+  end_date timestamptz
+  location text [not null]
+  event_type text
+  capacity integer
+  registration_required boolean [default: false]
+  registration_url text
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+  
+  indexes {
+    shelter_id
+    event_date
+  }
+}
+
+Table stories {
+  id uuid [pk]
+  post_id uuid [ref: - posts.id, unique, not null]
+  pet_id uuid [ref: > pets.id]
+  adopter_id uuid [ref: > users.id, not null]
+  shelter_id uuid [ref: > users.id]
+  story_text text [not null]
+  adoption_date date
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table adoption_requests {
+  id uuid [pk]
+  pet_id uuid [ref: > pets.id, not null]
+  adopter_id uuid [ref: > users.id, not null]
+  shelter_id uuid [ref: > users.id, not null]
+  status adoption_status [default: 'pending']
+  application_data jsonb
+  notes text
+  reviewed_at timestamptz
+  reviewed_by uuid [ref: > users.id]
+  rejection_reason text
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+  
+  indexes {
+    pet_id
+    adopter_id
+    shelter_id
+    status
+    (pet_id, adopter_id) [unique]
+  }
+}
+
+Table adoptions {
+  id uuid [pk]
+  pet_id uuid [ref: > pets.id, not null]
+  adopter_id uuid [ref: > users.id, not null]
+  shelter_id uuid [ref: > users.id, not null]
+  adoption_request_id uuid [ref: > adoption_requests.id]
+  adoption_date date [not null, default: `current_date`]
+  adoption_fee_paid decimal(10,2)
+  contract_signed boolean [default: false]
+  contract_url text
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table comments {
+  id uuid [pk]
+  post_id uuid [ref: > posts.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  parent_comment_id uuid [ref: > comments.id]
+  content text [not null]
+  like_count integer [default: 0]
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+  
+  indexes {
+    post_id
+    user_id
+    parent_comment_id
+  }
+}
+
+Table likes {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  post_id uuid [ref: > posts.id]
+  comment_id uuid [ref: > comments.id]
+  created_at timestamptz [default: `now()`]
+  
+  indexes {
+    user_id
+    post_id
+    comment_id
+    (user_id, post_id) [unique]
+    (user_id, comment_id) [unique]
+  }
+}
+
+Table notifications {
+  id uuid [pk]
+  user_id uuid [ref: > users.id, not null]
+  type notification_type [not null]
+  title text [not null]
+  message text [not null]
+  link text
+  is_read boolean [default: false]
+  metadata jsonb
+  created_at timestamptz [default: `now()`]
+  
+  indexes {
+    user_id
+    is_read
+    (created_at, desc)
+  }
+}
+
+Table follows {
+  id uuid [pk]
+  follower_id uuid [ref: > users.id, not null]
+  following_id uuid [ref: > users.id, not null]
+  created_at timestamptz [default: `now()`]
+  
+  indexes {
+    follower_id
+    following_id
+    (follower_id, following_id) [unique]
+  }
+}
+
+Enum user_role {
+  adopter
+  shelter
+}
+
+Enum adoption_status {
+  pending
+  approved
+  rejected
+  completed
+}
+
+Enum pet_status {
+  available
+  pending
+  adopted
+}
+
+Enum lost_pet_status {
+  lost
+  found
+}
+
+Enum post_type {
+  adoptable
+  lost_pet
+  event
+  story
+  feed
+}
+
+Enum notification_type {
+  like
+  comment
+  adoption_request
+  adoption_status
+  message
+}
