@@ -7,6 +7,9 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// User role type - all available roles
+export type UserRole = 'admin' | 'regular_user' | 'adopter' | 'volunteer' | 'shelter' | 'ngo' | 'city_pound';
+
 export interface Database {
   public: {
     Tables: {
@@ -15,7 +18,8 @@ export interface Database {
           id: string
           email: string
           username: string
-          role: 'adopter' | 'shelter'
+          role: UserRole
+          primary_role: UserRole | null
           is_verified: boolean
           avatar_url: string | null
           bio: string | null
@@ -33,7 +37,8 @@ export interface Database {
           id: string
           email: string
           username: string
-          role?: 'adopter' | 'shelter'
+          role?: UserRole
+          primary_role?: UserRole | null
           is_verified?: boolean
           avatar_url?: string | null
           bio?: string | null
@@ -51,7 +56,8 @@ export interface Database {
           id?: string
           email?: string
           username?: string
-          role?: 'adopter' | 'shelter'
+          role?: UserRole
+          primary_role?: UserRole | null
           is_verified?: boolean
           avatar_url?: string | null
           bio?: string | null
@@ -64,6 +70,23 @@ export interface Database {
           fcm_token?: string | null
           created_at?: string
           updated_at?: string
+        }
+      }
+      user_roles: {
+        Row: {
+          user_id: string
+          role: UserRole
+          granted_at: string
+        }
+        Insert: {
+          user_id: string
+          role: UserRole
+          granted_at?: string
+        }
+        Update: {
+          user_id?: string
+          role?: UserRole
+          granted_at?: string
         }
       }
       shelter_profiles: {

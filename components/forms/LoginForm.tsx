@@ -27,12 +27,16 @@ export function LoginForm() {
       
       if (result?.error) {
         setError(result.error);
+        setIsLoading(false);
       }
-      // If successful, login action will redirect
-    } catch (err) {
+      // If successful, login action will redirect - no need to set loading false
+    } catch (err: unknown) {
+      // Check if this is a redirect error (NEXT_REDIRECT) - don't treat as error
+      if (err instanceof Error && err.message === 'NEXT_REDIRECT') {
+        return; // Let the redirect happen
+      }
       setError('An unexpected error occurred');
       console.error('Login error:', err);
-    } finally {
       setIsLoading(false);
     }
   };

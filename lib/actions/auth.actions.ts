@@ -8,7 +8,7 @@ import type { SignUpFormData, LoginFormData } from '@/lib/validations';
 export async function signUp(formData: SignUpFormData) {
   const supabase = await createClient();
 
-  const { email, password, username, role } = formData;
+  const { email, password, username, role, organization_name, registration_number, organization_phone } = formData;
 
   // 1. Create auth user
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -17,7 +17,7 @@ export async function signUp(formData: SignUpFormData) {
     options: {
       data: {
         username,
-        role,
+        role: role,
       },
     },
   });
@@ -30,17 +30,40 @@ export async function signUp(formData: SignUpFormData) {
     return { error: 'Failed to create user' };
   }
 
-  // 2. Create user profile
+  // 2. Create user profile with the actual role
   const { error: userError } = await supabase.from('users').insert({
     id: authData.user.id,
     email,
     username,
-    role,
+    role: role,
+    primary_role: role,
     is_verified: false,
   });
 
   if (userError) {
     return { error: userError.message };
+  }
+
+  // 3. The trigger will auto-insert into user_roles, but we can add manually too
+  // This is handled by the on_user_created_sync_role trigger
+
+  // 4. Create organization profile if applicable
+  if (['ngo', 'shelter', 'city_pound'].includes(role) && organization_name) {
+    const orgType = role === 'ngo' ? 'ngo' : role === 'shelter' ? 'shelter' : 'city_pound';
+    
+    const { error: orgError } = await supabase.from('organization_profiles').insert({
+      user_id: authData.user.id,
+      organization_type: orgType,
+      organization_name: organization_name,
+      registration_number: registration_number || null,
+      phone: organization_phone || null,
+      verification_status: 'pending',
+      is_active: true,
+    });
+
+    if (orgError) {
+      console.error('Failed to create organization profile:', orgError);
+    }
   }
 
   return { success: true, userId: authData.user.id };
@@ -58,26 +81,42 @@ export async function login(formData: LoginFormData) {
     return { error: error.message };
   }
 
-  // Check if user is verified
+  // Check if user is verified and get their role
   const { data: user } = await supabase.auth.getUser();
   if (user.user) {
     const { data: profile } = await supabase
       .from('users')
-      .select('role, is_verified')
+      .select('role, primary_role, is_verified')
       .eq('id', user.user.id)
       .single();
 
+    // Use primary_role if set, otherwise fall back to role
+    const userRole = profile?.primary_role || profile?.role || 'regular_user';
+
     if (profile && !profile.is_verified) {
-      // Redirect to onboarding
-      const onboardingPath = profile.role === 'shelter' 
-        ? '/onboarding/shelter' 
-        : '/onboarding/adopter';
-      redirect(onboardingPath);
+      // Redirect to appropriate onboarding based on role
+      const onboardingRoutes: Record<string, string> = {
+        regular_user: '/onboarding/user',
+        volunteer: '/onboarding/volunteer',
+        adopter: '/onboarding/adopter',
+        ngo: '/onboarding/ngo',
+        shelter: '/onboarding/shelter',
+        city_pound: '/onboarding/city-pound',
+      };
+      redirect(onboardingRoutes[userRole] || '/onboarding/user');
     }
 
-    // Redirect to dashboard
-    const dashboardPath = profile?.role === 'shelter' ? '/shelter' : '/dashboard';
-    redirect(dashboardPath);
+    // Redirect to appropriate dashboard
+    const dashboardRoutes: Record<string, string> = {
+      admin: '/admin',
+      regular_user: '/dashboard',
+      volunteer: '/dashboard',
+      adopter: '/dashboard',
+      ngo: '/dashboard',
+      shelter: '/shelter',
+      city_pound: '/shelter',
+    };
+    redirect(dashboardRoutes[userRole] || '/dashboard');
   }
 
   return { success: true };
