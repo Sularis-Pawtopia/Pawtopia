@@ -1,6 +1,6 @@
 import { getSuccessStories } from '@/lib/actions/story.actions';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
-import { Navbar } from '@/components/layout/Navbar';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { StoryGrid } from '@/components/stories/StoryGrid';
 import { CreateStoryButton } from '@/components/stories/CreateStoryButton';
 
@@ -10,9 +10,9 @@ export default async function StoriesPage() {
   const stories = storiesResult.success ? storiesResult.data : [];
 
   return (
-    <>
-      <Navbar user={user} />
-      <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar user={user} />
+      <div className="flex-1">
         {/* Hero Header */}
         <div className="bg-gradient-to-r from-green-600 to-teal-600 text-white">
         <div className="max-w-7xl mx-auto px-4 py-16 text-center">
@@ -51,6 +51,6 @@ export default async function StoriesPage() {
         )}
       </div>
       </div>
-    </>
+    </div>
   );
 }

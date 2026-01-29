@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { getUserPermissions } from '@/lib/actions/role.actions';
 import { getReports, getReportStats } from '@/lib/actions/report.actions';
-import { Navbar } from '@/components/layout/Navbar';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { ReportFiltersComponent, ReportsList } from '@/components/reports';
 
 export const metadata = {
@@ -48,9 +48,9 @@ export default async function ReportsDashboardPage({
   const stats = statsResult.data;
 
   return (
-    <>
-      <Navbar user={user} />
-      <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar user={user} />
+      <div className="flex-1">
         <div className="max-w-7xl mx-auto px-4 py-8">
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
@@ -86,7 +86,7 @@ export default async function ReportsDashboardPage({
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

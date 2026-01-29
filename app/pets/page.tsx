@@ -1,7 +1,7 @@
 
 import { getAvailablePets } from '@/lib/actions/pet.actions';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
-import { Navbar } from '@/components/layout/Navbar';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { PetGrid } from '@/components/pets/PetGrid';
 import { PetFilters } from '@/components/pets/PetFilters';
 import { SearchBar } from '@/components/SearchBar';
@@ -23,52 +23,52 @@ export default async function PetsPage({
   const { data: pets } = await getAvailablePets(filters);
 
   return (
-    <>
-      <Navbar user={user} />
-      <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar user={user} />
+      <div className="flex-1">
         <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Find Your Perfect Companion
-          </h1>
-          <p className="text-gray-600">
-            Browse available pets from shelters near you
-          </p>
-        </div>
-
-        <div className="mb-6">
-          <SearchBar placeholder="Search by name, breed, or species..." />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Filters Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-6">
-              <PetFilters />
-            </div>
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Find Your Perfect Companion
+            </h1>
+            <p className="text-gray-600">
+              Browse available pets from shelters near you
+            </p>
           </div>
 
-          {/* Pet Grid */}
-          <div className="lg:col-span-3">
-            {pets && pets.length > 0 ? (
-              <PetGrid pets={pets} />
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">
-                  No pets found matching your criteria
-                </p>
-                <a
-                  href="/pets"
-                  className="mt-4 inline-block text-primary-600 hover:text-primary-700"
-                >
-                  Clear filters
-                </a>
+          <div className="mb-6">
+            <SearchBar placeholder="Search by name, breed, or species..." />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Filters Sidebar */}
+            <div className="lg:col-span-1">
+              <div className="sticky top-6">
+                <PetFilters />
               </div>
-            )}
+            </div>
+
+            {/* Pet Grid */}
+            <div className="lg:col-span-3">
+              {pets && pets.length > 0 ? (
+                <PetGrid pets={pets} />
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 text-lg">
+                    No pets found matching your criteria
+                  </p>
+                  <a
+                    href="/pets"
+                    className="mt-4 inline-block text-primary-600 hover:text-primary-700"
+                  >
+                    Clear filters
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
     </div>
-    </>
   );
 }

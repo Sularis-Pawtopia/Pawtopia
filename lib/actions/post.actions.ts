@@ -32,8 +32,20 @@ export async function likePost(postId: string) {
       return { error: error.message };
     }
 
-    revalidatePath('/dashboard');
-    return { success: true, liked: false };
+    // Count likes directly and update posts table
+    const { count } = await supabase
+      .from('likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId);
+
+    const newCount = count || 0;
+    await supabase
+      .from('posts')
+      .update({ like_count: newCount })
+      .eq('id', postId);
+
+    // Don't revalidate - client handles updates via realtime and optimistic updates
+    return { success: true, liked: false, count: newCount };
   } else {
     // Like
     const { error } = await supabase
@@ -47,8 +59,20 @@ export async function likePost(postId: string) {
       return { error: error.message };
     }
 
-    revalidatePath('/dashboard');
-    return { success: true, liked: true };
+    // Count likes directly and update posts table
+    const { count } = await supabase
+      .from('likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId);
+
+    const newCount = count || 0;
+    await supabase
+      .from('posts')
+      .update({ like_count: newCount })
+      .eq('id', postId);
+
+    // Don't revalidate - client handles updates via realtime and optimistic updates
+    return { success: true, liked: true, count: newCount };
   }
 }
 
@@ -79,8 +103,20 @@ export async function createComment(postId: string, content: string, parentComme
     return { error: error.message };
   }
 
-  revalidatePath('/dashboard');
-  return { success: true, data };
+  // Count comments directly and update posts table
+  const { count } = await supabase
+    .from('comments')
+    .select('*', { count: 'exact', head: true })
+    .eq('post_id', postId);
+
+  const newCount = count || 0;
+  await supabase
+    .from('posts')
+    .update({ comment_count: newCount })
+    .eq('id', postId);
+
+  // Don't revalidate - client handles updates via realtime
+  return { success: true, data, count: newCount };
 }
 
 export async function deleteComment(commentId: string) {
@@ -124,7 +160,12 @@ export async function getFeedPosts(filters?: {
       lost_pet:lost_pets(*),
       event:events(*),
       story:stories(*),
-      comments(count)
+      comments(
+        id,
+        content,
+        created_at,
+        user:users(id, username, avatar_url)
+      )
     `, { count: 'exact' })
     .eq('is_active', true)
     .order('created_at', { ascending: false });
@@ -147,22 +188,31 @@ export async function getFeedPosts(filters?: {
     return { error: error.message };
   }
 
-  // Check if user liked each post
+  // Check if user liked and saved each post
   if (user && posts) {
-    const { data: likes } = await supabase
-      .from('likes')
-      .select('post_id')
-      .eq('user_id', user.id)
-      .in('post_id', posts.map((p: any) => p.id));
+    const [likesResult, savesResult] = await Promise.all([
+      supabase
+        .from('likes')
+        .select('post_id')
+        .eq('user_id', user.id)
+        .in('post_id', posts.map((p: any) => p.id)),
+      supabase
+        .from('saved_posts')
+        .select('post_id')
+        .eq('user_id', user.id)
+        .in('post_id', posts.map((p: any) => p.id))
+    ]);
 
-    const likedPostIds = new Set(likes?.map((l: any) => l.post_id));
+    const likedPostIds = new Set(likesResult.data?.map((l: any) => l.post_id));
+    const savedPostIds = new Set(savesResult.data?.map((s: any) => s.post_id));
 
-    const postsWithLikes = posts.map((post: any) => ({
+    const postsWithLikesAndSaves = posts.map((post: any) => ({
       ...post,
       is_liked_by_user: likedPostIds.has(post.id),
+      is_saved_by_user: savedPostIds.has(post.id),
     }));
 
-    return { data: postsWithLikes, count };
+    return { data: postsWithLikesAndSaves, count };
   }
 
   return { data: posts, count };
@@ -250,4 +300,78 @@ export async function deletePost(postId: string) {
   revalidatePath('/dashboard');
   revalidatePath('/shelter');
   return { success: true };
+}
+
+export async function savePost(postId: string) {
+  const supabase = await createClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    return { error: 'Not authenticated' };
+  }
+
+  // Check if already saved
+  const { data: existingSave } = await supabase
+    .from('saved_posts')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('post_id', postId)
+    .single();
+
+  if (existingSave) {
+    // Unsave
+    const { error } = await supabase
+      .from('saved_posts')
+      .delete()
+      .eq('id', existingSave.id);
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath('/dashboard');
+    return { success: true, saved: false };
+  } else {
+    // Save
+    const { error } = await supabase
+      .from('saved_posts')
+      .insert({
+        user_id: user.id,
+        post_id: postId,
+      });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    revalidatePath('/dashboard');
+    return { success: true, saved: true };
+  }
+}
+
+export async function getSavedPosts(userId: string) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('saved_posts')
+    .select(`
+      *,
+      post:posts(
+        *,
+        user:users(id, username, avatar_url, role, city, state),
+        pet:pets(*),
+        lost_pet:lost_pets(*),
+        event:events(*),
+        story:stories(*)
+      )
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { data };
 }

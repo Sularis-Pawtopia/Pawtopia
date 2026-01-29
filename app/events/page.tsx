@@ -1,6 +1,6 @@
 import { getEvents } from '@/lib/actions/event.actions';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
-import { Navbar } from '@/components/layout/Navbar';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { EventGrid } from '@/components/events/EventGrid';
 import { EventFilters } from '@/components/events/EventFilters';
 import { CreateEventButton } from '@/components/events/CreateEventButton';
@@ -11,9 +11,9 @@ export default async function EventsPage() {
   const events = eventsResult.success ? eventsResult.data : [];
 
   return (
-    <>
-      <Navbar user={user} />
-      <div className="min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar user={user} />
+      <div className="flex-1">
         {/* Header */}
         <div className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white">
         <div className="max-w-7xl mx-auto px-4 py-12">
@@ -70,6 +70,7 @@ export default async function EventsPage() {
           </div>
         </div>
       </div>
-    </>
+      </div>
+    </div>
   );
 }
