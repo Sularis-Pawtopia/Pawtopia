@@ -1,6 +1,5 @@
 import { getLostPets } from '@/lib/actions/lost-pet.actions';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
-import { Sidebar } from '@/components/layout/Sidebar';
 import { LostPetGrid } from '@/components/lost-pets/LostPetGrid';
 import { LostPetFilters } from '@/components/lost-pets/LostPetFilters';
 import { PostLostPetButton } from '@/components/lost-pets/PostLostPetButton';
@@ -12,9 +11,7 @@ export default async function LostPetsPage() {
   const lostPets = lostPetsResult.success ? lostPetsResult.data : [];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar user={user} />
-      <div className="flex-1">
+    <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-6">
@@ -79,7 +76,6 @@ export default async function LostPetsPage() {
           </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }

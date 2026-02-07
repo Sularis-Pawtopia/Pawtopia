@@ -1,6 +1,4 @@
 import { getExplorePets, getFeaturedShelters } from '@/lib/actions/explore.actions';
-import { getCurrentUser } from '@/lib/actions/auth.actions';
-import { Sidebar } from '@/components/layout/Sidebar';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
 import { FeaturedPets } from '@/components/explore/FeaturedPets';
 import { NearbyShelters } from '@/components/explore/NearbyShelters';
@@ -8,7 +6,6 @@ import { TrendingAdoptions } from '@/components/explore/TrendingAdoptions';
 import { AdvancedFilters } from '@/components/explore/AdvancedFilters';
 
 export default async function ExplorePage() {
-  const user = await getCurrentUser();
   const [petsResult, sheltersResult] = await Promise.all([
     getExplorePets(),
     getFeaturedShelters(),
@@ -18,9 +15,7 @@ export default async function ExplorePage() {
   const shelters = sheltersResult.success ? sheltersResult.data : [];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar user={user} />
-      <div className="flex-1">
+    <div className="min-h-screen bg-gray-50">
         <ExploreHeader />
 
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -60,7 +55,6 @@ export default async function ExplorePage() {
             </main>
           </div>
         </div>
-      </div>
     </div>
   );
 }

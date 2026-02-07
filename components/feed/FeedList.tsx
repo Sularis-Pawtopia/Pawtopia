@@ -6,12 +6,16 @@ import Link from 'next/link';
 import { Heart, MessageCircle, Bookmark, MapPin, Calendar, PawPrint } from 'lucide-react';
 import { PostWithDetails, CommentWithUser } from '@/types';
 import { likePost, savePost, createComment } from '@/lib/actions/post.actions';
+import { getAdoptionRequestForPet } from '@/lib/actions/adoption.actions';
 import { createClient } from '@/lib/supabase/client';
 import { ImageCarousel } from './ImageCarousel';
+import { PetDetailModal } from '../pets/PetDetailModal';
+import AdoptPetModal from '../profile/AdoptPetModal';
 
 interface FeedListProps {
   initialPosts: PostWithDetails[];
   currentUserId?: string;
+  userRole?: string;
 }
 
 function formatDate(dateString: string) {
@@ -45,10 +49,14 @@ function getPostTypeTag(postType: string) {
   return tags[postType as keyof typeof tags] || tags.feed;
 }
 
-export function FeedList({ initialPosts, currentUserId }: FeedListProps) {
+export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProps) {
   const [posts, setPosts] = useState(initialPosts);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [showAllComments, setShowAllComments] = useState<Record<string, boolean>>({});
+  const [selectedPetPost, setSelectedPetPost] = useState<PostWithDetails | null>(null);
+  const [showAdoptModal, setShowAdoptModal] = useState<{ pet: any; shelterUser: any } | null>(null);
+  const [existingRequests, setExistingRequests] = useState<Record<string, { id: string; status: string; created_at?: string } | null>>({});
+  const [adoptTooltip, setAdoptTooltip] = useState<string | null>(null);
   // Track posts with pending like actions to prevent realtime race conditions
   const pendingLikes = useRef<Set<string>>(new Set());
   // Debounce timers for realtime like count fetches
@@ -304,6 +312,48 @@ export function FeedList({ initialPosts, currentUserId }: FeedListProps) {
     return comments.length - 2;
   };
 
+  // Check for existing adoption requests when posts load
+  useEffect(() => {
+    if (!currentUserId || userRole !== 'adopter') return;
+    
+    const petPosts = posts.filter(p => p.pet && p.pet.status === 'available');
+    petPosts.forEach(async (post) => {
+      if (!post.pet || existingRequests[post.pet.id] !== undefined) return;
+      const result = await getAdoptionRequestForPet(post.pet.id, currentUserId);
+      if (result.data) {
+        setExistingRequests(prev => ({ ...prev, [post.pet!.id]: result.data! }));
+      } else {
+        setExistingRequests(prev => ({ ...prev, [post.pet!.id]: null }));
+      }
+    });
+  }, [posts, currentUserId, userRole]);
+
+  const handleViewPet = useCallback((post: PostWithDetails) => {
+    setSelectedPetPost(post);
+  }, []);
+
+  const handleAdoptClick = useCallback((post: PostWithDetails) => {
+    if (!post.pet) return;
+    const postUser = Array.isArray(post.user) ? post.user[0] : post.user;
+    setShowAdoptModal({
+      pet: {
+        ...post.pet,
+        post: {
+          description: post.description,
+          media_urls: post.media_urls as string[],
+          tags: post.tags || [],
+        },
+      },
+      shelterUser: postUser,
+    });
+  }, []);
+
+  const handleAdoptionSuccess = useCallback((petId: string) => {
+    setShowAdoptModal(null);
+    setSelectedPetPost(null);
+    setExistingRequests(prev => ({ ...prev, [petId]: { id: 'new', status: 'pending' } }));
+  }, []);
+
   return (
     <div className="space-y-6">
       {posts.length === 0 ? (
@@ -404,31 +454,91 @@ export function FeedList({ initialPosts, currentUserId }: FeedListProps) {
                 {/* Pet Details */}
                 {post.pet && (
                   <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                    <Link href={`/pets/${post.pet.id}`} className="block hover:underline">
-                      <p className="font-bold text-green-900 text-lg">{post.pet.name}</p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {post.pet.species && (
-                          <span className="px-2 py-1 bg-white rounded-full text-xs text-gray-700">
-                            {post.pet.species}
-                          </span>
-                        )}
-                        {post.pet.breed && (
-                          <span className="px-2 py-1 bg-white rounded-full text-xs text-gray-700">
-                            {post.pet.breed}
-                          </span>
-                        )}
-                        {post.pet.gender && (
-                          <span className="px-2 py-1 bg-white rounded-full text-xs text-gray-700">
-                            {post.pet.gender}
-                          </span>
-                        )}
-                        {post.pet.age_years !== null && (
-                          <span className="px-2 py-1 bg-white rounded-full text-xs text-gray-700">
-                            {post.pet.age_years}y {post.pet.age_months}m
-                          </span>
-                        )}
+                    <div className="flex items-start justify-between gap-3">
+                      <div
+                        className="flex-1 cursor-pointer hover:underline"
+                        onClick={() => handleViewPet(post)}
+                      >
+                        <p className="font-bold text-green-900 text-lg">{post.pet.name}</p>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {post.pet.species && (
+                            <span className="px-2 py-1 bg-white rounded-full text-xs text-gray-700">
+                              {post.pet.species}
+                            </span>
+                          )}
+                          {post.pet.breed && (
+                            <span className="px-2 py-1 bg-white rounded-full text-xs text-gray-700">
+                              {post.pet.breed}
+                            </span>
+                          )}
+                          {post.pet.gender && (
+                            <span className="px-2 py-1 bg-white rounded-full text-xs text-gray-700">
+                              {post.pet.gender}
+                            </span>
+                          )}
+                          {post.pet.age_years !== null && (
+                            <span className="px-2 py-1 bg-white rounded-full text-xs text-gray-700">
+                              {post.pet.age_years}y {post.pet.age_months}m
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </Link>
+
+                      {/* Adopt Button */}
+                      {post.pet.status === 'available' && (
+                        <div className="relative flex-shrink-0">
+                          {existingRequests[post.pet.id] ? (
+                            <span className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold ${
+                              existingRequests[post.pet.id]!.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              existingRequests[post.pet.id]!.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              {existingRequests[post.pet.id]!.status === 'pending' ? '⏳ Under Review' :
+                               existingRequests[post.pet.id]!.status === 'approved' ? '✅ Approved' :
+                               '📋 Submitted'}
+                            </span>
+                          ) : userRole === 'adopter' ? (
+                            <button
+                              onClick={() => handleAdoptClick(post)}
+                              className="px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 active:bg-green-800 transition-all shadow-sm hover:shadow-md flex items-center gap-1.5"
+                            >
+                              <PawPrint className="w-4 h-4" />
+                              Adopt Me
+                            </button>
+                          ) : (
+                            <div
+                              className="relative"
+                              onMouseEnter={() => setAdoptTooltip(post.id)}
+                              onMouseLeave={() => setAdoptTooltip(null)}
+                            >
+                              <button
+                                disabled
+                                className="px-4 py-2 bg-gray-200 text-gray-500 text-sm font-semibold rounded-lg cursor-not-allowed flex items-center gap-1.5"
+                              >
+                                <PawPrint className="w-4 h-4" />
+                                Adopt Me
+                              </button>
+                              {adoptTooltip === post.id && (
+                                <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-20">
+                                  Sign up as an adopter to adopt pets
+                                  <div className="absolute top-full right-4 w-2 h-2 bg-gray-900 transform rotate-45 -translate-y-1"></div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {post.pet.status === 'adopted' && (
+                        <span className="px-3 py-2 bg-blue-100 text-blue-800 text-xs font-semibold rounded-lg">
+                          🏠 Adopted
+                        </span>
+                      )}
+                      {post.pet.status === 'pending' && (
+                        <span className="px-3 py-2 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-lg">
+                          ⏳ Pending
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -588,8 +698,59 @@ export function FeedList({ initialPosts, currentUserId }: FeedListProps) {
           );
         })
       )}
-      
+
+      {/* Pet Detail Modal */}
+      {selectedPetPost && selectedPetPost.pet && (
+        <PetDetailModal
+          pet={{
+            ...selectedPetPost.pet,
+            post: {
+              description: selectedPetPost.description,
+              media_urls: selectedPetPost.media_urls as string[],
+              tags: selectedPetPost.tags || [],
+            },
+            shelter: (() => {
+              const u = Array.isArray(selectedPetPost.user) ? selectedPetPost.user[0] : selectedPetPost.user;
+              return {
+                id: u?.id || '',
+                username: u?.username || '',
+                avatar_url: u?.avatar_url || undefined,
+                city: u?.city || undefined,
+                state: u?.state || undefined,
+              };
+            })(),
+          }}
+          userRole={userRole}
+          existingRequest={existingRequests[selectedPetPost.pet.id] || null}
+          onClose={() => setSelectedPetPost(null)}
+          onAdopt={() => {
+            const postUser = Array.isArray(selectedPetPost.user) ? selectedPetPost.user[0] : selectedPetPost.user;
+            setSelectedPetPost(null);
+            setShowAdoptModal({
+              pet: {
+                ...selectedPetPost.pet!,
+                post: {
+                  description: selectedPetPost.description,
+                  media_urls: selectedPetPost.media_urls as string[],
+                  tags: selectedPetPost.tags || [],
+                },
+              },
+              shelterUser: postUser,
+            });
+          }}
+        />
+      )}
+
+      {/* Adopt Pet Modal — same flow as shelter profile */}
+      {showAdoptModal && (
+        <AdoptPetModal
+          pet={showAdoptModal.pet}
+          viewerRole={userRole}
+          existingRequest={existingRequests[showAdoptModal.pet.id] || undefined}
+          onClose={() => setShowAdoptModal(null)}
+          onSuccess={() => handleAdoptionSuccess(showAdoptModal.pet.id)}
+        />
+      )}
     </div>
   );
 }
-

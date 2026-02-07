@@ -6,7 +6,7 @@ import type { AdoptionStatus } from '@/types';
 
 export async function createAdoptionRequest(
   petId: string,
-  applicationData: Record<string, unknown>
+  applicationData?: Record<string, unknown>
 ) {
   const supabase = await createClient();
   
@@ -14,6 +14,17 @@ export async function createAdoptionRequest(
   
   if (!user) {
     return { error: 'Not authenticated' };
+  }
+
+  // Verify the user is an adopter
+  const { data: userData } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!userData || userData.role !== 'adopter') {
+    return { error: 'Only adopters can submit adoption requests' };
   }
 
   // Get pet to find shelter_id
@@ -39,13 +50,32 @@ export async function createAdoptionRequest(
     return { error: 'You have already applied for this pet' };
   }
 
+  // Auto-attach adopter profile + user info as application data
+  const { data: adopterProfile } = await supabase
+    .from('adopter_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  const { data: adopterUser } = await supabase
+    .from('users')
+    .select('email, phone, address, city, state, username')
+    .eq('id', user.id)
+    .single();
+
+  const fullApplicationData = {
+    ...applicationData,
+    adopter_profile: adopterProfile || {},
+    adopter_user: adopterUser || {},
+  };
+
   const { data, error } = await supabase
     .from('adoption_requests')
     .insert({
       pet_id: petId,
       adopter_id: user.id,
       shelter_id: pet.shelter_id,
-      application_data: applicationData,
+      application_data: fullApplicationData,
       status: 'pending',
     })
     .select()
@@ -64,6 +94,53 @@ export async function createAdoptionRequest(
   revalidatePath(`/pets/${petId}`);
   revalidatePath('/dashboard');
   return { success: true, data };
+}
+
+export async function cancelAdoptionRequest(
+  requestId: string,
+  _reason?: string
+) {
+  const supabase = await createClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  // Get the request to verify ownership and get pet_id
+  const { data: request } = await supabase
+    .from('adoption_requests')
+    .select('id, adopter_id, pet_id, status')
+    .eq('id', requestId)
+    .single();
+
+  if (!request) return { error: 'Request not found' };
+  if (request.adopter_id !== user.id) return { error: 'Not authorized' };
+  if (request.status !== 'pending') return { error: 'Only pending requests can be cancelled' };
+
+  // Delete the request
+  const { error } = await supabase
+    .from('adoption_requests')
+    .delete()
+    .eq('id', requestId);
+
+  if (error) return { error: error.message };
+
+  // Check if any other pending requests exist for this pet — if not, reset to available
+  const { data: otherRequests } = await supabase
+    .from('adoption_requests')
+    .select('id')
+    .eq('pet_id', request.pet_id)
+    .in('status', ['pending', 'approved']);
+
+  if (!otherRequests || otherRequests.length === 0) {
+    await supabase
+      .from('pets')
+      .update({ status: 'available' })
+      .eq('id', request.pet_id);
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/shelter');
+  return { success: true };
 }
 
 export async function updateAdoptionRequestStatus(
@@ -227,6 +304,7 @@ export async function getAdoptionRequests(shelterId: string, status?: AdoptionSt
         email,
         phone,
         avatar_url,
+        address,
         city,
         state,
         adopter_profile:adopter_profiles(*)
@@ -263,7 +341,8 @@ export async function getUserAdoptionRequests(userId: string) {
           username,
           avatar_url,
           phone,
-          email
+          email,
+          shelter_profile:shelter_profiles(*)
         )
       )
     `)
@@ -275,6 +354,58 @@ export async function getUserAdoptionRequests(userId: string) {
   }
 
   return { data };
+}
+
+export async function getAdoptionRequestForPet(petId: string, adopterId: string) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('adoption_requests')
+    .select('id, status, created_at')
+    .eq('pet_id', petId)
+    .eq('adopter_id', adopterId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    return { error: error.message };
+  }
+
+  return { data };
+}
+
+export async function getMyAdoptionRequestForPet(petId: string) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null };
+
+  const { data, error } = await supabase
+    .from('adoption_requests')
+    .select('id, status, created_at')
+    .eq('pet_id', petId)
+    .eq('adopter_id', user.id)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    return { error: error.message };
+  }
+
+  return { data: data || null };
+}
+
+export async function getAdoptionRequestCountForPet(petId: string) {
+  const supabase = await createClient();
+
+  const { count, error } = await supabase
+    .from('adoption_requests')
+    .select('*', { count: 'exact', head: true })
+    .eq('pet_id', petId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { count: count || 0 };
 }
 
 export async function getAdoptedPets(userId: string, role: 'adopter' | 'shelter') {

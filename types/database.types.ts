@@ -22,6 +22,7 @@ export interface Database {
           primary_role: UserRole | null
           is_verified: boolean
           avatar_url: string | null
+          cover_photo_url: string | null
           bio: string | null
           phone: string | null
           address: string | null
@@ -41,6 +42,7 @@ export interface Database {
           primary_role?: UserRole | null
           is_verified?: boolean
           avatar_url?: string | null
+          cover_photo_url?: string | null
           bio?: string | null
           phone?: string | null
           address?: string | null
@@ -60,6 +62,7 @@ export interface Database {
           primary_role?: UserRole | null
           is_verified?: boolean
           avatar_url?: string | null
+          cover_photo_url?: string | null
           bio?: string | null
           phone?: string | null
           address?: string | null
@@ -102,6 +105,18 @@ export interface Database {
           operating_hours: Json | null
           capacity: number | null
           social_media: Json | null
+          year_established: number | null
+          contact_first_name: string | null
+          contact_last_name: string | null
+          contact_mi: string | null
+          type_of_animals: string | null
+          areas_covered: string | null
+          spaying_policy: string | null
+          vaccination_policy: string | null
+          fostering_programs: string | null
+          business_permit_urls: Json | null
+          prompted_by: Json | null
+          verification_status: string | null
           created_at: string
           updated_at: string
         }
@@ -117,6 +132,18 @@ export interface Database {
           operating_hours?: Json | null
           capacity?: number | null
           social_media?: Json | null
+          year_established?: number | null
+          contact_first_name?: string | null
+          contact_last_name?: string | null
+          contact_mi?: string | null
+          type_of_animals?: string | null
+          areas_covered?: string | null
+          spaying_policy?: string | null
+          vaccination_policy?: string | null
+          fostering_programs?: string | null
+          business_permit_urls?: Json | null
+          prompted_by?: Json | null
+          verification_status?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -132,6 +159,18 @@ export interface Database {
           operating_hours?: Json | null
           capacity?: number | null
           social_media?: Json | null
+          year_established?: number | null
+          contact_first_name?: string | null
+          contact_last_name?: string | null
+          contact_mi?: string | null
+          type_of_animals?: string | null
+          areas_covered?: string | null
+          spaying_policy?: string | null
+          vaccination_policy?: string | null
+          fostering_programs?: string | null
+          business_permit_urls?: Json | null
+          prompted_by?: Json | null
+          verification_status?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -252,7 +291,8 @@ export interface Database {
         Row: {
           id: string
           post_id: string
-          shelter_id: string
+          shelter_id: string | null
+          owner_id: string | null
           name: string
           species: string
           breed: string | null
@@ -279,7 +319,8 @@ export interface Database {
         Insert: {
           id?: string
           post_id: string
-          shelter_id: string
+          shelter_id?: string | null
+          owner_id?: string | null
           name: string
           species: string
           breed?: string | null
@@ -306,7 +347,8 @@ export interface Database {
         Update: {
           id?: string
           post_id?: string
-          shelter_id?: string
+          shelter_id?: string | null
+          owner_id?: string | null
           name?: string
           species?: string
           breed?: string | null

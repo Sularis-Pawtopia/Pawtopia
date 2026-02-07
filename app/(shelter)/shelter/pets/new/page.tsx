@@ -22,7 +22,7 @@ export default async function AddPetPage() {
   }
   
   if (!user.is_verified) {
-    redirect('/onboarding/shelter');
+    redirect('/onboarding/shelter/pending');
   }
 
   return (

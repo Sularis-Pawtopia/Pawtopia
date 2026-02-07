@@ -1,7 +1,6 @@
 
 import { getAvailablePets } from '@/lib/actions/pet.actions';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
-import { Sidebar } from '@/components/layout/Sidebar';
 import { PetGrid } from '@/components/pets/PetGrid';
 import { PetFilters } from '@/components/pets/PetFilters';
 import { SearchBar } from '@/components/SearchBar';
@@ -23,10 +22,8 @@ export default async function PetsPage({
   const { data: pets } = await getAvailablePets(filters);
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar user={user} />
-      <div className="flex-1">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Find Your Perfect Companion
@@ -51,7 +48,7 @@ export default async function PetsPage({
             {/* Pet Grid */}
             <div className="lg:col-span-3">
               {pets && pets.length > 0 ? (
-                <PetGrid pets={pets} />
+                <PetGrid pets={pets} userRole={user?.role} userId={user?.id} />
               ) : (
                 <div className="text-center py-12">
                   <p className="text-gray-500 text-lg">
@@ -68,7 +65,6 @@ export default async function PetsPage({
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }

@@ -166,7 +166,7 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
       <div className="space-y-2">
         <Label>Experience with Animals</Label>
         <Select
-          onValueChange={(value) => setValue('experience_level', value as any)}
+          onValueChange={(value: string) => setValue('experience_level', value as any)}
           defaultValue="none"
         >
           <SelectTrigger>
@@ -192,7 +192,7 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
               onClick={() => toggleSkill(skill)}
               className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
                 selectedSkills.includes(skill)
-                  ? 'bg-orange-100 border-orange-500 text-orange-700'
+                  ? 'bg-primary-100 border-primary-500 text-primary-700'
                   : 'bg-white border-gray-200 hover:border-gray-300'
               }`}
             >
@@ -259,7 +259,7 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
         <div className="flex items-center space-x-2">
           <Checkbox
             id="has_vehicle"
-            onCheckedChange={(checked) => setValue('has_vehicle', !!checked)}
+            onCheckedChange={(checked: boolean) => setValue('has_vehicle', !!checked)}
           />
           <Label htmlFor="has_vehicle" className="font-normal">
             I have access to a vehicle for transport
@@ -269,7 +269,7 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
           <Checkbox
             id="can_handle_animals"
             defaultChecked
-            onCheckedChange={(checked) => setValue('can_handle_animals', !!checked)}
+            onCheckedChange={(checked: boolean) => setValue('can_handle_animals', !!checked)}
           />
           <Label htmlFor="can_handle_animals" className="font-normal">
             I&apos;m comfortable handling animals directly

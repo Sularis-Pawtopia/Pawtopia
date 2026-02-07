@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { getUserPermissions } from '@/lib/actions/role.actions';
 import { getReportById } from '@/lib/actions/report.actions';
-import { Navbar } from '@/components/layout/Navbar';
 import { ReportStatusUpdater, ReportTimeline } from '@/components/reports';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -61,8 +60,6 @@ export default async function ReportDetailPage({
   const typeInfo = typeLabels[report.report_type] || { label: report.report_type, emoji: '📋', color: 'gray' };
 
   return (
-    <>
-      <Navbar user={user} />
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-5xl mx-auto px-4 py-8">
           {/* Back Link */}
@@ -289,6 +286,5 @@ export default async function ReportDetailPage({
           </div>
         </div>
       </div>
-    </>
   );
 }

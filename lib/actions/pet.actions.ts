@@ -12,6 +12,17 @@ export async function createPet(
 ) {
   const supabase = await createClient();
 
+  // 0. Verify shelter is approved before allowing pet creation
+  const { data: shelterUser } = await supabase
+    .from('users')
+    .select('is_verified')
+    .eq('id', shelterId)
+    .single();
+
+  if (!shelterUser?.is_verified) {
+    return { error: 'Your shelter account is pending verification. You cannot post pets until an admin approves your account.' };
+  }
+
   // 1. Create post
   const { data: post, error: postError } = await supabase
     .from('posts')
@@ -223,7 +234,11 @@ export async function getAvailablePets(filters?: {
         username,
         avatar_url,
         city,
-        state
+        state,
+        shelter_profile:shelter_profiles(
+          shelter_name,
+          phone
+        )
       )
     `, { count: 'exact' })
     .eq('status', 'available')
@@ -300,4 +315,164 @@ export async function searchPets(searchTerm: string) {
   }
 
   return { data };
+}
+
+// =============================================
+// ADOPTER PET MANAGEMENT
+// =============================================
+
+export async function createAdopterPet(
+  formData: PetFormData,
+  mediaUrls: string[]
+) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  // Verify adopter role
+  const { data: userData } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!userData || userData.role !== 'adopter') {
+    return { error: 'Only adopters can add personal pets' };
+  }
+
+  // 1. Create post 
+  const { data: post, error: postError } = await supabase
+    .from('posts')
+    .insert({
+      user_id: user.id,
+      post_type: 'feed' as const,
+      title: formData.name,
+      description: formData.description,
+      media_urls: mediaUrls,
+      tags: formData.tags || [],
+    })
+    .select()
+    .single();
+
+  if (postError || !post) {
+    return { error: postError?.message || 'Failed to create post' };
+  }
+
+  // 2. Create pet with owner_id
+  const { data: pet, error: petError } = await supabase
+    .from('pets')
+    .insert({
+      post_id: post.id,
+      owner_id: user.id,
+      name: formData.name,
+      species: formData.species,
+      breed: formData.breed,
+      age_years: formData.age_years,
+      age_months: formData.age_months,
+      gender: formData.gender,
+      size: formData.size,
+      color: formData.color,
+      weight: formData.weight,
+      status: 'adopted' as const, // personal pet — not up for adoption
+      is_vaccinated: formData.is_vaccinated,
+      is_spayed_neutered: formData.is_spayed_neutered,
+      medical_history: formData.medical_history,
+      temperament: formData.temperament,
+      good_with_kids: formData.good_with_kids,
+      good_with_dogs: formData.good_with_dogs,
+      good_with_cats: formData.good_with_cats,
+      energy_level: formData.energy_level,
+      special_needs: formData.special_needs,
+    })
+    .select()
+    .single();
+
+  if (petError) {
+    // Cleanup the post if pet creation fails
+    await supabase.from('posts').delete().eq('id', post.id);
+    return { error: petError.message };
+  }
+
+  revalidatePath(`/profile/${user.id}`);
+  return { success: true, data: pet };
+}
+
+export async function getAdopterOwnPets(userId: string) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('pets')
+    .select('*, post:posts(*)')
+    .eq('owner_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { data: data || [] };
+}
+
+export async function getAdopterAllPets(userId: string) {
+  const supabase = await createClient();
+
+  // 1. Get adopter's own pets (owner_id)
+  const { data: ownPets } = await supabase
+    .from('pets')
+    .select('*, post:posts(*)')
+    .eq('owner_id', userId)
+    .order('created_at', { ascending: false });
+
+  // 2. Get adopted pets from adoptions table
+  const { data: adoptions } = await supabase
+    .from('adoptions')
+    .select(`
+      *,
+      pet:pets(*, post:posts(*)),
+      shelter:users!adoptions_shelter_id_fkey(id, username, avatar_url)
+    `)
+    .eq('adopter_id', userId)
+    .order('adoption_date', { ascending: false });
+
+  const adoptedPets = (adoptions || []).map((a: any) => ({
+    ...a.pet,
+    _adoption: {
+      adoption_date: a.adoption_date,
+      shelter: a.shelter,
+    },
+    _source: 'adopted',
+  }));
+
+  const personalPets = (ownPets || []).map((p: any) => ({
+    ...p,
+    _source: 'personal',
+  }));
+
+  return { data: [...personalPets, ...adoptedPets] };
+}
+
+export async function deleteAdopterPet(petId: string) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  // Verify ownership
+  const { data: pet } = await supabase
+    .from('pets')
+    .select('post_id, owner_id')
+    .eq('id', petId)
+    .single();
+
+  if (!pet) return { error: 'Pet not found' };
+  if (pet.owner_id !== user.id) return { error: 'Not authorized' };
+
+  const { error } = await supabase.from('pets').delete().eq('id', petId);
+  if (error) return { error: error.message };
+
+  await supabase.from('posts').delete().eq('id', pet.post_id);
+
+  revalidatePath(`/profile/${user.id}`);
+  return { success: true };
 }
