@@ -277,6 +277,38 @@ export async function getUserAdoptionRequests(userId: string) {
   return { data };
 }
 
+export async function getAdoptionRequestForPet(petId: string, adopterId: string) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from('adoption_requests')
+    .select('id, status, created_at')
+    .eq('pet_id', petId)
+    .eq('adopter_id', adopterId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    return { error: error.message };
+  }
+
+  return { data };
+}
+
+export async function getAdoptionRequestCountForPet(petId: string) {
+  const supabase = await createClient();
+
+  const { count, error } = await supabase
+    .from('adoption_requests')
+    .select('*', { count: 'exact', head: true })
+    .eq('pet_id', petId);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { count: count || 0 };
+}
+
 export async function getAdoptedPets(userId: string, role: 'adopter' | 'shelter') {
   const supabase = await createClient();
 

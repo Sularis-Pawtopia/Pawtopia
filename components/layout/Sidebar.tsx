@@ -80,7 +80,7 @@ export function Sidebar({ user }: SidebarProps) {
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             {!isCollapsed && (
               <Link href={user?.role === 'shelter' ? '/shelter' : '/dashboard'} className="flex items-center gap-2">
-                <PawPrint className="w-8 h-8 text-green-600" />
+                <PawPrint className="w-8 h-8 text-primary-500" />
                 <span className="text-xl font-bold text-gray-900">Pawtopia</span>
               </Link>
             )}
@@ -109,7 +109,7 @@ export function Sidebar({ user }: SidebarProps) {
                   href={item.href}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                     isActive
-                      ? 'bg-green-100 text-green-700'
+                      ? 'bg-primary-100 text-primary-700'
                       : 'text-gray-700 hover:bg-gray-100'
                   }`}
                   title={isCollapsed ? item.name : undefined}
@@ -122,38 +122,6 @@ export function Sidebar({ user }: SidebarProps) {
               );
             })}
           </nav>
-
-          {/* User section */}
-          {user && (
-            <div className="border-t border-gray-200 p-4 space-y-1">
-              <Link
-                href={`/profile/${user.id}`}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                title={isCollapsed ? 'Profile' : undefined}
-              >
-                <User className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && <span className="font-medium">Profile</span>}
-              </Link>
-              <Link
-                href="/settings"
-                className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                title={isCollapsed ? 'Settings' : undefined}
-              >
-                <Settings className="w-5 h-5 flex-shrink-0" />
-                {!isCollapsed && <span className="font-medium">Settings</span>}
-              </Link>
-              <form action="/api/auth/logout" method="POST">
-                <button
-                  type="submit"
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors"
-                  title={isCollapsed ? 'Logout' : undefined}
-                >
-                  <LogOut className="w-5 h-5 flex-shrink-0" />
-                  {!isCollapsed && <span className="font-medium">Logout</span>}
-                </button>
-              </form>
-            </div>
-          )}
         </div>
       </aside>
 

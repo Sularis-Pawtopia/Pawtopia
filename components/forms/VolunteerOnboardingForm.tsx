@@ -192,7 +192,7 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
               onClick={() => toggleSkill(skill)}
               className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
                 selectedSkills.includes(skill)
-                  ? 'bg-orange-100 border-orange-500 text-orange-700'
+                  ? 'bg-primary-100 border-primary-500 text-primary-700'
                   : 'bg-white border-gray-200 hover:border-gray-300'
               }`}
             >

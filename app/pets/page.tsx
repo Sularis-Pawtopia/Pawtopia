@@ -51,7 +51,7 @@ export default async function PetsPage({
             {/* Pet Grid */}
             <div className="lg:col-span-3">
               {pets && pets.length > 0 ? (
-                <PetGrid pets={pets} />
+                <PetGrid pets={pets} userRole={user?.role} userId={user?.id} />
               ) : (
                 <div className="text-center py-12">
                   <p className="text-gray-500 text-lg">

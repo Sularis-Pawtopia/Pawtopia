@@ -30,6 +30,11 @@ export function ProfileHeader({ profile }: { profile: any }) {
                 ✓
               </div>
             )}
+            {!profile.is_verified && profile.role === 'shelter' && (
+              <div className="absolute bottom-2 right-2 bg-amber-400 text-white rounded-full p-2" title="Pending verification">
+                ⏳
+              </div>
+            )}
           </div>
 
           {/* Profile Info */}
@@ -42,6 +47,18 @@ export function ProfileHeader({ profile }: { profile: any }) {
                     : profile.full_name || profile.username}
                 </h1>
                 <p className="text-gray-600">@{profile.username}</p>
+                
+                {/* Role badge */}
+                {isShelter && !profile.is_verified && (
+                  <span className="inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                    ⏳ Pending Verification
+                  </span>
+                )}
+                {isShelter && profile.is_verified && (
+                  <span className="inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                    ✅ Verified Shelter
+                  </span>
+                )}
                 
                 {isShelter && profile.profile && (
                   <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">

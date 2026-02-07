@@ -12,6 +12,17 @@ export async function createPet(
 ) {
   const supabase = await createClient();
 
+  // 0. Verify shelter is approved before allowing pet creation
+  const { data: shelterUser } = await supabase
+    .from('users')
+    .select('is_verified')
+    .eq('id', shelterId)
+    .single();
+
+  if (!shelterUser?.is_verified) {
+    return { error: 'Your shelter account is pending verification. You cannot post pets until an admin approves your account.' };
+  }
+
   // 1. Create post
   const { data: post, error: postError } = await supabase
     .from('posts')
@@ -223,7 +234,11 @@ export async function getAvailablePets(filters?: {
         username,
         avatar_url,
         city,
-        state
+        state,
+        shelter_profile:shelter_profiles(
+          shelter_name,
+          phone
+        )
       )
     `, { count: 'exact' })
     .eq('status', 'available')

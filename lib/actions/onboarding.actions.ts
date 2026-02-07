@@ -245,11 +245,12 @@ export async function submitAdopterOnboarding(
     return { error: profileError.message };
   }
 
-  // Update user as verified
+  // Update user as verified and ensure role is 'adopter'
   const { error: userError } = await supabase
     .from('users')
     .update({
       is_verified: true,
+      role: 'adopter',
       phone: formData.phone,
       address: formData.address,
       city: formData.city,
@@ -268,47 +269,83 @@ export async function submitAdopterOnboarding(
 
 export async function submitShelterOnboarding(
   userId: string,
-  formData: ShelterProfileFormData,
-  fileUrls: { license_document?: string; verification_documents: string[] }
+  formData: ShelterProfileFormData & {
+    year_established?: number;
+    contact_first_name?: string;
+    contact_last_name?: string;
+    contact_mi?: string;
+    email_address?: string;
+    type_of_animals?: string;
+    opening_hours?: string;
+    closing_hours?: string;
+    areas_covered?: string;
+    prompted_by?: string[];
+    spaying_policy?: string;
+    vaccination_policy?: string;
+    fostering_programs?: string;
+  },
+  fileUrls: { license_document?: string; verification_documents: string[]; business_permit_urls?: string[] }
 ) {
   const supabase = await createClient();
 
-  // Create shelter profile
-  const { error: profileError } = await supabase.from('shelter_profiles').insert({
+  // Upsert shelter profile (pending verification) — allows re-submissions
+  const profileData = {
     user_id: userId,
     shelter_name: formData.shelter_name,
-    description: formData.description,
+    description: formData.description || '',
     website: formData.website,
     registration_number: formData.registration_number,
     license_document_url: fileUrls.license_document,
     verification_documents: fileUrls.verification_documents,
     capacity: formData.capacity,
     social_media: (formData as any).social_media,
-  });
+    operating_hours: formData.opening_hours || formData.closing_hours
+      ? { open: formData.opening_hours, close: formData.closing_hours }
+      : null,
+    year_established: formData.year_established,
+    contact_first_name: formData.contact_first_name,
+    contact_last_name: formData.contact_last_name,
+    contact_mi: formData.contact_mi,
+    type_of_animals: formData.type_of_animals,
+    areas_covered: formData.areas_covered,
+    prompted_by: formData.prompted_by,
+    spaying_policy: formData.spaying_policy,
+    vaccination_policy: formData.vaccination_policy,
+    fostering_programs: formData.fostering_programs,
+    business_permit_urls: fileUrls.business_permit_urls,
+    verification_status: 'pending',
+  };
+
+  const { error: profileError } = await supabase
+    .from('shelter_profiles')
+    .upsert(profileData, { onConflict: 'user_id' });
 
   if (profileError) {
+    console.error('Shelter profile upsert error:', profileError);
     return { error: profileError.message };
   }
 
-  // Update user as verified
+  // Update user contact info — NOT verified yet (admin must approve)
   const { error: userError } = await supabase
     .from('users')
     .update({
-      is_verified: true,
+      is_verified: false,
       phone: formData.phone,
       address: formData.address,
-      city: formData.city,
-      state: formData.state,
-      zip_code: formData.zip_code,
+      city: formData.city || '',
+      state: formData.state || '',
+      zip_code: formData.zip_code || '',
     })
     .eq('id', userId);
 
   if (userError) {
+    console.error('User update error:', userError);
     return { error: userError.message };
   }
 
   revalidatePath('/shelter');
-  redirect('/shelter');
+  revalidatePath('/dashboard');
+  return { success: true };
 }
 
 export async function updateAdopterProfile(

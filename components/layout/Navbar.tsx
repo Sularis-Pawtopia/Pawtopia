@@ -65,37 +65,6 @@ export function Navbar({ user }: NavbarProps) {
             <span className="hidden sm:inline">Pawtopia</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive(link.href)
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="mr-1">{link.icon}</span>
-                {link.label}
-              </Link>
-            ))}
-            {user.role === 'shelter' && shelterLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive(link.href)
-                    ? 'bg-primary-100 text-primary-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="mr-1">{link.icon}</span>
-                {link.label}
-              </Link>
-            ))}
-          </div>
 
           {/* Right Section */}
           <div className="flex items-center gap-4">

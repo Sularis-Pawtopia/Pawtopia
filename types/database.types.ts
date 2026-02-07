@@ -102,6 +102,18 @@ export interface Database {
           operating_hours: Json | null
           capacity: number | null
           social_media: Json | null
+          year_established: number | null
+          contact_first_name: string | null
+          contact_last_name: string | null
+          contact_mi: string | null
+          type_of_animals: string | null
+          areas_covered: string | null
+          spaying_policy: string | null
+          vaccination_policy: string | null
+          fostering_programs: string | null
+          business_permit_urls: Json | null
+          prompted_by: Json | null
+          verification_status: string | null
           created_at: string
           updated_at: string
         }
@@ -117,6 +129,18 @@ export interface Database {
           operating_hours?: Json | null
           capacity?: number | null
           social_media?: Json | null
+          year_established?: number | null
+          contact_first_name?: string | null
+          contact_last_name?: string | null
+          contact_mi?: string | null
+          type_of_animals?: string | null
+          areas_covered?: string | null
+          spaying_policy?: string | null
+          vaccination_policy?: string | null
+          fostering_programs?: string | null
+          business_permit_urls?: Json | null
+          prompted_by?: Json | null
+          verification_status?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -132,6 +156,18 @@ export interface Database {
           operating_hours?: Json | null
           capacity?: number | null
           social_media?: Json | null
+          year_established?: number | null
+          contact_first_name?: string | null
+          contact_last_name?: string | null
+          contact_mi?: string | null
+          type_of_animals?: string | null
+          areas_covered?: string | null
+          spaying_policy?: string | null
+          vaccination_policy?: string | null
+          fostering_programs?: string | null
+          business_permit_urls?: Json | null
+          prompted_by?: Json | null
+          verification_status?: string | null
           created_at?: string
           updated_at?: string
         }

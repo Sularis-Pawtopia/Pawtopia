@@ -46,7 +46,7 @@ export function ProductGrid({ products }: { products: any[] }) {
                   ${product.price.toFixed(2)}
                 </div>
                 {product.stock_quantity < 10 && product.stock_quantity > 0 && (
-                  <div className="text-xs text-orange-600">
+                  <div className="text-xs text-primary-600">
                     Only {product.stock_quantity} left!
                   </div>
                 )}

@@ -218,7 +218,7 @@ export function SignUpForm() {
                   onClick={() => handleRoleSelect(role.value)}
                   className={`p-4 border-2 rounded-xl text-left transition-all ${
                     selectedRole === role.value
-                      ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                      ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200'
                       : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -234,7 +234,7 @@ export function SignUpForm() {
                       <p className="text-sm text-gray-600 mt-1">{role.description}</p>
                     </div>
                     {selectedRole === role.value && (
-                      <div className="text-orange-500">
+                      <div className="text-primary-500">
                         <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
@@ -268,7 +268,7 @@ export function SignUpForm() {
                   <ul className="mt-2 space-y-1">
                     {selectedRoleInfo.requirements.map((req, i) => (
                       <li key={i} className="text-sm text-gray-600 flex items-center gap-2">
-                        <span className="text-orange-500">•</span> {req}
+                        <span className="text-primary-500">•</span> {req}
                       </li>
                     ))}
                   </ul>
@@ -280,7 +280,7 @@ export function SignUpForm() {
           <button
             type="button"
             onClick={handleContinue}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+            className="w-full bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
           >
             Continue as {selectedRoleInfo?.label}
           </button>
@@ -298,10 +298,10 @@ export function SignUpForm() {
             Back to role selection
           </button>
 
-          <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg">
-            <span className="text-xl">{selectedRoleInfo?.emoji}</span>
-            <span className="font-medium text-orange-800">{selectedRoleInfo?.label}</span>
-            <span className="text-xs bg-orange-100 px-2 py-0.5 rounded-full text-orange-700">
+          <div className="flex items-center gap-2 p-3 bg-primary-50 rounded-lg">
+            <span className="text-2xl">{selectedRoleInfo?.emoji}</span>
+            <span className="font-medium text-primary-800">{selectedRoleInfo?.label}</span>
+            <span className="text-xs bg-primary-100 px-2 py-0.5 rounded-full text-primary-700">
               {selectedRoleInfo?.badge}
             </span>
           </div>
@@ -438,7 +438,7 @@ export function SignUpForm() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Creating account...' : 'Create Account'}
           </button>
