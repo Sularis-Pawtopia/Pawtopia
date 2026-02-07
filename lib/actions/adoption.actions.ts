@@ -6,7 +6,7 @@ import type { AdoptionStatus } from '@/types';
 
 export async function createAdoptionRequest(
   petId: string,
-  applicationData: Record<string, unknown>
+  applicationData?: Record<string, unknown>
 ) {
   const supabase = await createClient();
   
@@ -14,6 +14,17 @@ export async function createAdoptionRequest(
   
   if (!user) {
     return { error: 'Not authenticated' };
+  }
+
+  // Verify the user is an adopter
+  const { data: userData } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!userData || userData.role !== 'adopter') {
+    return { error: 'Only adopters can submit adoption requests' };
   }
 
   // Get pet to find shelter_id
@@ -39,13 +50,32 @@ export async function createAdoptionRequest(
     return { error: 'You have already applied for this pet' };
   }
 
+  // Auto-attach adopter profile + user info as application data
+  const { data: adopterProfile } = await supabase
+    .from('adopter_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  const { data: adopterUser } = await supabase
+    .from('users')
+    .select('email, phone, address, city, state, username')
+    .eq('id', user.id)
+    .single();
+
+  const fullApplicationData = {
+    ...applicationData,
+    adopter_profile: adopterProfile || {},
+    adopter_user: adopterUser || {},
+  };
+
   const { data, error } = await supabase
     .from('adoption_requests')
     .insert({
       pet_id: petId,
       adopter_id: user.id,
       shelter_id: pet.shelter_id,
-      application_data: applicationData,
+      application_data: fullApplicationData,
       status: 'pending',
     })
     .select()

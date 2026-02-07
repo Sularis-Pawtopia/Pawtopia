@@ -28,6 +28,7 @@ CREATE TABLE users (
   role user_role NOT NULL DEFAULT 'adopter',
   is_verified BOOLEAN DEFAULT FALSE,
   avatar_url TEXT,
+  cover_photo_url TEXT,
   bio TEXT,
   phone TEXT,
   address TEXT,
@@ -713,8 +714,10 @@ INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 VALUES 
   ('pet-images', 'pet-images', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
   ('profile-avatars', 'profile-avatars', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp']),
+  ('profile-covers', 'profile-covers', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp']),
   ('event-images', 'event-images', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp']),
   ('documents', 'documents', false, 20971520, ARRAY['application/pdf', 'image/jpeg', 'image/png']),
+  ('verification-documents', 'verification-documents', false, 20971520, ARRAY['application/pdf', 'image/jpeg', 'image/png']),
   ('stories', 'stories', true, 10485760, ARRAY['image/jpeg', 'image/png', 'image/webp', 'video/mp4']);
 
 -- Storage policies for pet-images bucket
@@ -758,6 +761,48 @@ CREATE POLICY "Allow users to delete own avatar"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'profile-avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Storage policies for profile-covers bucket
+CREATE POLICY "Allow authenticated users to upload cover photos"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'profile-covers' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Allow public to view cover photos"
+ON storage.objects FOR SELECT
+TO public
+USING (bucket_id = 'profile-covers');
+
+CREATE POLICY "Allow users to update own cover photo"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'profile-covers' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Allow users to delete own cover photo"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'profile-covers' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- Storage policies for verification-documents bucket
+CREATE POLICY "Allow authenticated users to upload verification docs"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'verification-documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Allow users to view own verification docs"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'verification-documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Allow users to update own verification docs"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (bucket_id = 'verification-documents' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+CREATE POLICY "Allow users to delete own verification docs"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (bucket_id = 'verification-documents' AND auth.uid()::text = (storage.foldername(name))[1]);
 
 -- Storage policies for event-images bucket
 CREATE POLICY "Allow shelters to upload event images"

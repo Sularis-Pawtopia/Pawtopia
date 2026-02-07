@@ -22,6 +22,7 @@ export interface Database {
           primary_role: UserRole | null
           is_verified: boolean
           avatar_url: string | null
+          cover_photo_url: string | null
           bio: string | null
           phone: string | null
           address: string | null
@@ -41,6 +42,7 @@ export interface Database {
           primary_role?: UserRole | null
           is_verified?: boolean
           avatar_url?: string | null
+          cover_photo_url?: string | null
           bio?: string | null
           phone?: string | null
           address?: string | null
@@ -60,6 +62,7 @@ export interface Database {
           primary_role?: UserRole | null
           is_verified?: boolean
           avatar_url?: string | null
+          cover_photo_url?: string | null
           bio?: string | null
           phone?: string | null
           address?: string | null
@@ -288,7 +291,8 @@ export interface Database {
         Row: {
           id: string
           post_id: string
-          shelter_id: string
+          shelter_id: string | null
+          owner_id: string | null
           name: string
           species: string
           breed: string | null
@@ -315,7 +319,8 @@ export interface Database {
         Insert: {
           id?: string
           post_id: string
-          shelter_id: string
+          shelter_id?: string | null
+          owner_id?: string | null
           name: string
           species: string
           breed?: string | null
@@ -342,7 +347,8 @@ export interface Database {
         Update: {
           id?: string
           post_id?: string
-          shelter_id?: string
+          shelter_id?: string | null
+          owner_id?: string | null
           name?: string
           species?: string
           breed?: string | null

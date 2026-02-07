@@ -215,51 +215,115 @@ export async function submitCityPoundOnboarding(
   redirect('/shelter');
 }
 
+// New adopter onboarding data type
+interface AdopterOnboardingData {
+  first_name: string;
+  last_name: string;
+  mi?: string;
+  date_of_birth: string | null;
+  gender: string;
+  contact_number: string;
+  address: string;
+  email: string;
+  occupation: string;
+  business_name: string;
+  social_media_link?: string;
+  civil_status: string;
+  prompted_by: string[];
+  first_time_adopter: boolean;
+  alt_first_name: string;
+  alt_last_name: string;
+  alt_mi?: string;
+  alt_birth_date: string | null;
+  alt_relationship: string;
+  alt_contact_number: string;
+  looking_to_adopt: string;
+  specific_shelter_animal: boolean;
+  ideal_pet_description: string;
+  building_type: string;
+  do_you_rent: boolean;
+  pet_when_moving: string;
+  live_with: string[];
+  household_allergic: boolean;
+  pet_caretaker: string;
+  financial_responsible: string;
+  vacation_care: string;
+  hours_alone: string;
+  introduce_steps: string;
+  family_support: boolean;
+  had_pets_before: boolean;
+  home_photos: string[];
+  valid_id_urls: string[];
+}
+
 export async function submitAdopterOnboarding(
   userId: string,
-  formData: AdopterProfileFormData,
-  fileUrls: { home_photos: string[]; valid_ids: string[] }
+  formData: AdopterOnboardingData
 ) {
   const supabase = await createClient();
 
-  // Create adopter profile
-  const { error: profileError } = await supabase.from('adopter_profiles').insert({
+  // Upsert adopter profile — allows re-submissions
+  const { error: profileError } = await supabase.from('adopter_profiles').upsert({
     user_id: userId,
     first_name: formData.first_name,
     last_name: formData.last_name,
+    mi: formData.mi || null,
     date_of_birth: formData.date_of_birth,
+    gender: formData.gender,
+    contact_number: formData.contact_number,
+    email: formData.email,
     occupation: formData.occupation,
-    income_range: formData.income_range,
-    household_size: formData.household_size,
-    has_children: formData.has_children,
-    has_other_pets: formData.has_other_pets,
-    pet_experience: formData.pet_experience,
-    home_type: formData.home_type,
-    home_ownership: formData.home_ownership,
-    yard_size: formData.yard_size,
-    home_photos: fileUrls.home_photos,
-    valid_id_urls: fileUrls.valid_ids,
+    business_name: formData.business_name,
+    social_media_link: formData.social_media_link || null,
+    civil_status: formData.civil_status,
+    prompted_by: formData.prompted_by,
+    first_time_adopter: formData.first_time_adopter,
+    alt_first_name: formData.alt_first_name,
+    alt_last_name: formData.alt_last_name,
+    alt_mi: formData.alt_mi || null,
+    alt_birth_date: formData.alt_birth_date,
+    alt_relationship: formData.alt_relationship,
+    alt_contact_number: formData.alt_contact_number,
+    looking_to_adopt: formData.looking_to_adopt,
+    specific_shelter_animal: formData.specific_shelter_animal,
+    ideal_pet_description: formData.ideal_pet_description,
+    building_type: formData.building_type,
+    do_you_rent: formData.do_you_rent,
+    pet_when_moving: formData.pet_when_moving,
+    live_with: formData.live_with,
+    household_allergic: formData.household_allergic,
+    pet_caretaker: formData.pet_caretaker,
+    financial_responsible: formData.financial_responsible,
+    vacation_care: formData.vacation_care,
+    hours_alone: formData.hours_alone,
+    introduce_steps: formData.introduce_steps,
+    family_support: formData.family_support,
+    had_pets_before: formData.had_pets_before,
+    home_photos: formData.home_photos,
+    valid_id_urls: formData.valid_id_urls,
+    home_type: formData.building_type,
+  }, {
+    onConflict: 'user_id',
   });
 
   if (profileError) {
+    console.error('Adopter profile error:', profileError);
     return { error: profileError.message };
   }
 
-  // Update user as verified and ensure role is 'adopter'
+  // Update user — set role to adopter (no verification needed, shelter decides)
   const { error: userError } = await supabase
     .from('users')
     .update({
       is_verified: true,
       role: 'adopter',
-      phone: formData.phone,
+      phone: formData.contact_number,
       address: formData.address,
-      city: formData.city,
-      state: formData.state,
-      zip_code: formData.zip_code,
     })
     .eq('id', userId);
 
   if (userError) {
+    console.error('User update error:', userError);
     return { error: userError.message };
   }
 
