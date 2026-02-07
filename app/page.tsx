@@ -7,6 +7,7 @@ import { CTASection } from '@/components/landing/CTASection';
 export default async function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 to-white">
+      
       {/* Header/Navigation */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">

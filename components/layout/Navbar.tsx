@@ -1,197 +1,319 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
 import { clientLogout } from '@/lib/actions/auth.actions';
+import { useSidebar } from './SidebarContext';
+import {
+  Home, Compass, Heart, Calendar, MapPin, BookOpen, ShoppingBag,
+  Menu, X, Bell, PawPrint, LayoutDashboard, Settings, LogOut,
+} from 'lucide-react';
 
 interface NavbarProps {
   user: {
     id: string;
     username: string;
-    full_name: string | null;
     avatar_url: string | null;
-    role: 'adopter' | 'shelter' | 'admin';
-  } | null;
+    role: string;
+    [key: string]: any;
+  };
 }
+
+const mainNavTabs = [
+  { href: '/dashboard', label: 'Feed', icon: Home },
+  { href: '/pets', label: 'Pets', icon: Heart },
+  { href: '/explore', label: 'Explore', icon: Compass },
+  { href: '/events', label: 'Events', icon: Calendar },
+  { href: '/lost-pets', label: 'Lost & Found', icon: MapPin },
+  { href: '/stories', label: 'Stories', icon: BookOpen },
+  { href: '/store', label: 'Store', icon: ShoppingBag },
+];
 
 export function Navbar({ user }: NavbarProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isSidebarVisible, isDrawerOpen, openDrawer, closeDrawer } = useSidebar();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  const navTabs = user.role === 'shelter'
+    ? [{ href: '/shelter', label: 'Shelter', icon: LayoutDashboard }, ...mainNavTabs]
+    : mainNavTabs;
+
+  const isActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + '/');
+
+  // Close profile dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  // Close everything on route change
+  useEffect(() => {
+    closeDrawer();
+    setIsProfileOpen(false);
+  }, [pathname, closeDrawer]);
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
     try {
       await clientLogout();
-      // Force full page reload to clear all state
       window.location.href = '/';
-    } catch (error) {
-      console.error('Logout error:', error);
-      alert('Failed to sign out. Please try again.');
+    } catch {
       setIsLoggingOut(false);
     }
   };
 
-  const navLinks = [
-    { href: '/dashboard', label: 'Home', icon: '🏠' },
-    { href: '/pets', label: 'Browse Pets', icon: '🐾' },
-    { href: '/explore', label: 'Explore', icon: '🔍' },
-    { href: '/lost-pets', label: 'Lost & Found', icon: '📢' },
-    { href: '/events', label: 'Events', icon: '📅' },
-    { href: '/stories', label: 'Success Stories', icon: '❤️' },
-    { href: '/store', label: 'Store', icon: '🛍️' },
-  ];
-
-  const shelterLinks = [
-    { href: '/shelter', label: 'Shelter Dashboard', icon: '🏢' },
-  ];
-
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
-
-  if (!user) {
-    return null; // Don't show navbar on landing/auth pages
+  // Hide on landing, auth, and onboarding pages
+  if (pathname === '/' || pathname.startsWith('/auth') || pathname.startsWith('/onboarding')) {
+    return null;
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl text-primary-600">
-            <span>🐾</span>
-            <span className="hidden sm:inline">Pawtopia</span>
-          </Link>
+    <>
+      {/* ── Fixed Navbar ── */}
+      <nav className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-gray-200 z-50">
+        <div className="h-full px-4 flex items-center">
+          {/* Left ─ Logo */}
+          <div className="flex items-center gap-2 min-w-[56px] md:min-w-[200px]">
+            <Link
+              href={user.role === 'shelter' ? '/shelter' : '/dashboard'}
+              className="flex items-center gap-2"
+            >
+              <PawPrint className="w-8 h-8 text-primary-500" />
+              <span className="text-xl font-bold text-gray-900 hidden md:inline">
+                Pawtopia
+              </span>
+            </Link>
+          </div>
 
+          {/* Center ─ Tab Navigation (hidden on small screens) */}
+          <div className="hidden md:flex items-center justify-center flex-1 h-full">
+            {navTabs.map((tab) => {
+              const Icon = tab.icon;
+              const active = isActive(tab.href);
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={`relative flex items-center justify-center h-full px-3 lg:px-5 xl:px-8 transition-colors group ${
+                    active ? 'text-primary-600' : 'text-gray-400 hover:text-gray-600'
+                  }`}
+                >
+                  <Icon className="w-6 h-6" strokeWidth={active ? 2.5 : 1.5} />
+                  {active && (
+                    <div className="absolute bottom-0 left-1 right-1 h-[3px] bg-primary-500 rounded-t-full" />
+                  )}
+                  {/* Hover bg */}
+                  <div
+                    className={`absolute inset-x-1 inset-y-1 rounded-lg -z-10 transition-colors ${
+                      active ? '' : 'group-hover:bg-gray-100'
+                    }`}
+                  />
+                  {/* Tooltip */}
+                  <span className="absolute top-full mt-1 px-2 py-1 bg-gray-800 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10">
+                    {tab.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
 
-          {/* Right Section */}
-          <div className="flex items-center gap-4">
+          {/* Right ─ Actions */}
+          <div className="flex items-center gap-1.5 ml-auto md:ml-0 md:min-w-[200px] justify-end">
+            {/* Menu button: always on mobile, on desktop only when sidebar is absent */}
+            <button
+              onClick={openDrawer}
+              className={`p-2.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors ${
+                isSidebarVisible ? 'lg:hidden' : ''
+              }`}
+              aria-label="Menu"
+            >
+              <Menu className="w-5 h-5 text-gray-700" />
+            </button>
+
             {/* Notifications */}
-            <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg relative">
-              <span className="text-xl">🔔</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <button className="p-2.5 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors relative">
+              <Bell className="w-5 h-5 text-gray-700" />
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white" />
             </button>
 
             {/* Profile Dropdown */}
-            <div className="relative">
+            <div className="relative" ref={profileRef}>
               <button
-                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="p-0.5 rounded-full hover:ring-2 hover:ring-gray-200 transition-all"
               >
-                <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+                <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
                   {user.avatar_url ? (
-                    <img src={user.avatar_url} alt={user.username} className="w-full h-full object-cover" />
+                    <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-primary-600 font-semibold">
+                    <span className="text-primary-600 font-semibold text-sm">
                       {user.username?.[0]?.toUpperCase() || '?'}
                     </span>
                   )}
                 </div>
-                <span className="hidden md:inline text-sm font-medium text-gray-700">
-                  {user.full_name || user.username}
-                </span>
-                <span className="text-gray-400">▼</span>
               </button>
 
-              {/* Dropdown Menu */}
-              {isProfileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="text-sm font-semibold text-gray-900">{user.full_name || user.username}</p>
-                    <p className="text-xs text-gray-500">@{user.username}</p>
-                    <p className="text-xs text-primary-600 capitalize mt-1">{user.role}</p>
-                  </div>
-                  
+              {isProfileOpen && (
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 py-1 z-50">
+                  {/* Profile card */}
                   <Link
                     href={`/profile/${user.id}`}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
+                    onClick={() => setIsProfileOpen(false)}
                   >
-                    <span>👤</span>
-                    <span>My Profile</span>
+                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+                      {user.avatar_url ? (
+                        <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-primary-600 font-semibold">
+                          {user.username?.[0]?.toUpperCase() || '?'}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-[15px] text-gray-900">
+                        {user.username}
+                      </p>
+                      <p className="text-xs text-gray-500">See your profile</p>
+                    </div>
                   </Link>
-                  
+
+                  <div className="mx-3 border-t border-gray-100" />
+
                   <Link
                     href="/settings"
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setIsProfileMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50"
+                    onClick={() => setIsProfileOpen(false)}
                   >
-                    <span>⚙️</span>
-                    <span>Settings</span>
+                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                      <Settings className="w-[18px] h-[18px] text-gray-700" />
+                    </div>
+                    <span className="text-[15px] text-gray-700">Settings</span>
                   </Link>
-                  
-                  <hr className="my-2" />
-                  
+
                   <button
                     onClick={handleSignOut}
                     disabled={isLoggingOut}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 disabled:opacity-50"
                   >
-                    <span>{isLoggingOut ? '⏳' : '🚪'}</span>
-                    <span>{isLoggingOut ? 'Signing out...' : 'Sign Out'}</span>
+                    <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                      <LogOut className="w-[18px] h-[18px] text-gray-700" />
+                    </div>
+                    <span className="text-[15px] text-gray-700">
+                      {isLoggingOut ? 'Signing out...' : 'Sign out'}
+                    </span>
                   </button>
                 </div>
               )}
             </div>
-
-            {/* Mobile Menu Toggle */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-            >
-              <span className="text-xl">{isMobileMenuOpen ? '✕' : '☰'}</span>
-            </button>
           </div>
         </div>
+      </nav>
 
-        {/* Mobile Menu */}
-        {isMobileMenuOpen && (
-          <div className="lg:hidden border-t border-gray-200 py-4">
-            <div className="flex flex-col gap-2">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive(link.href)
-                      ? 'bg-primary-100 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <span className="mr-2">{link.icon}</span>
-                  {link.label}
-                </Link>
-              ))}
-              {user.role === 'shelter' && shelterLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive(link.href)
-                      ? 'bg-primary-100 text-primary-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <span className="mr-2">{link.icon}</span>
-                  {link.label}
-                </Link>
-              ))}
+      {/* ── Spacer (pushes page content below fixed navbar) ── */}
+      <div className="h-14" />
+
+      {/* ── Navigation Drawer (mobile + desktop when no sidebar) ── */}
+      {isDrawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/30 z-[60]"
+            onClick={closeDrawer}
+          />
+          <aside className="fixed top-0 left-0 w-[320px] max-w-[85vw] h-full bg-white z-[70] shadow-2xl overflow-y-auto">
+            {/* Header */}
+            <div className="p-4 flex items-center justify-between border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900">Menu</h2>
+              <button
+                onClick={closeDrawer}
+                className="p-2 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* Click outside to close */}
-      {isProfileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setIsProfileMenuOpen(false)}
-        />
+            {/* User card */}
+            <Link
+              href={`/profile/${user.id}`}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
+              onClick={closeDrawer}
+            >
+              <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center overflow-hidden">
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-primary-600 font-semibold">
+                    {user.username?.[0]?.toUpperCase() || '?'}
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="font-semibold text-[15px] text-gray-900">
+                  {user.username}
+                </p>
+                <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+              </div>
+            </Link>
+
+            <div className="mx-4 border-t border-gray-100" />
+
+            {/* Navigation links */}
+            <nav className="p-2">
+              {navTabs.map((tab) => {
+                const Icon = tab.icon;
+                const active = isActive(tab.href);
+                return (
+                  <Link
+                    key={tab.href}
+                    href={tab.href}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                      active
+                        ? 'bg-primary-50 text-primary-700 font-semibold'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={closeDrawer}
+                  >
+                    <div
+                      className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                        active ? 'bg-primary-100' : 'bg-gray-100'
+                      }`}
+                    >
+                      <Icon
+                        className={`w-5 h-5 ${active ? 'text-primary-600' : 'text-gray-600'}`}
+                      />
+                    </div>
+                    <span className="text-[15px]">{tab.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="mx-4 border-t border-gray-100" />
+
+            <div className="p-2">
+              <Link
+                href="/settings"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-gray-100"
+                onClick={closeDrawer}
+              >
+                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Settings className="w-5 h-5 text-gray-600" />
+                </div>
+                <span className="text-[15px]">Settings</span>
+              </Link>
+            </div>
+          </aside>
+        </>
       )}
-    </nav>
+    </>
   );
 }

@@ -1,6 +1,5 @@
 import { getStoreProducts } from '@/lib/actions/store.actions';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
-import { Sidebar } from '@/components/layout/Sidebar';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { ProductGrid } from '@/components/store/ProductGrid';
 import { CategoryFilters } from '@/components/store/CategoryFilters';
@@ -11,9 +10,7 @@ export default async function StorePage() {
   const products = productsResult.success ? productsResult.data : [];
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
-      <Sidebar user={user} />
-      <div className="flex-1">
+    <div className="min-h-screen bg-gray-50">
         <StoreHeader />
 
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -49,7 +46,6 @@ export default async function StorePage() {
           </main>
         </div>
         </div>
-      </div>
     </div>
   );
 }

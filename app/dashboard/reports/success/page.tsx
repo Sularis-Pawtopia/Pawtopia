@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { Navbar } from '@/components/layout/Navbar';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
 
 export const metadata = {
@@ -11,8 +10,6 @@ export default async function ReportSuccessPage() {
   const user = await getCurrentUser();
 
   return (
-    <>
-      <Navbar user={user} />
       <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center">
         <div className="max-w-md mx-auto text-center px-4 py-12">
           {/* Success Icon */}
@@ -88,6 +85,5 @@ export default async function ReportSuccessPage() {
           </div>
         </div>
       </div>
-    </>
   );
 }
