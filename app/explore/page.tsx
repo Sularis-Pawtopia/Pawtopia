@@ -1,5 +1,4 @@
 import { getExplorePets, getFeaturedShelters } from '@/lib/actions/explore.actions';
-import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
 import { FeaturedPets } from '@/components/explore/FeaturedPets';
 import { NearbyShelters } from '@/components/explore/NearbyShelters';
@@ -7,7 +6,6 @@ import { TrendingAdoptions } from '@/components/explore/TrendingAdoptions';
 import { AdvancedFilters } from '@/components/explore/AdvancedFilters';
 
 export default async function ExplorePage() {
-  const user = await getCurrentUser();
   const [petsResult, sheltersResult] = await Promise.all([
     getExplorePets(),
     getFeaturedShelters(),

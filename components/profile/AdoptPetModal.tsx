@@ -1,21 +1,30 @@
 "use client";
 
-import { useState } from 'react';
-import { createAdoptionRequest } from '@/lib/actions/adoption.actions';
+import { useState, useEffect } from 'react';
+import { createAdoptionRequest, getMyAdoptionRequestForPet, cancelAdoptionRequest } from '@/lib/actions/adoption.actions';
 
 interface AdoptPetModalProps {
   pet: any;
   shelterProfile?: any;
   viewerRole?: string | null;
+  existingRequest?: { id: string; status: string; created_at?: string } | null;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-export default function AdoptPetModal({ pet, shelterProfile, viewerRole, onClose, onSuccess }: AdoptPetModalProps) {
+export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existingRequest: externalRequest, onClose, onSuccess }: AdoptPetModalProps) {
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
+
+  // Existing request state — either passed in as prop or fetched
+  const [existingReq, setExistingReq] = useState<{ id: string; status: string; created_at?: string } | null>(externalRequest || null);
+  const [checkingExisting, setCheckingExisting] = useState(!externalRequest && viewerRole === 'adopter');
 
   const mediaUrls = pet.post?.media_urls;
   const images: string[] = Array.isArray(mediaUrls) ? mediaUrls : [];
@@ -27,6 +36,23 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, onClose
   const isAdopted = pet.status === 'adopted';
   const isViewerAdopter = viewerRole === 'adopter';
   const isViewerShelterOwner = shelterProfile?.isOwner;
+
+  // Check if the current adopter already has a pending request for this pet
+  useEffect(() => {
+    if (externalRequest || !isViewerAdopter || isAdopted) {
+      setCheckingExisting(false);
+      return;
+    }
+    setCheckingExisting(true);
+    getMyAdoptionRequestForPet(pet.id).then((res) => {
+      if (res.data) {
+        setExistingReq(res.data);
+      }
+      setCheckingExisting(false);
+    }).catch(() => {
+      setCheckingExisting(false);
+    });
+  }, [pet.id, externalRequest, isViewerAdopter, isAdopted]);
 
   const handleAdopt = async () => {
     setIsLoading(true);
@@ -49,6 +75,31 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, onClose
     }
   };
 
+  const handleCancelRequest = async () => {
+    if (!existingReq) return;
+    setIsCancelling(true);
+    setError('');
+    try {
+      const res: any = await cancelAdoptionRequest(existingReq.id, cancelReason || undefined);
+      if (res.error) {
+        setError(res.error);
+      } else {
+        setCancelSuccess(true);
+        setExistingReq(null);
+        setShowCancelConfirm(false);
+        setCancelReason('');
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+          onClose();
+        }, 2000);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to cancel');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
   const ageText = (() => {
     const parts: string[] = [];
     if (pet.age_years) parts.push(`${pet.age_years} year${pet.age_years > 1 ? 's' : ''}`);
@@ -63,14 +114,14 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, onClose
         onClick={(e) => e.stopPropagation()}
       >
         {/* ——— Left: Image gallery ——— */}
-        <div className="md:w-[45%] flex-shrink-0 bg-gray-100 relative">
+        <div className="md:w-[45%] flex-shrink-0 bg-gray-100 relative p-2">
           {images.length > 0 ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={images[currentImg]}
                 alt={pet.name}
-                className="w-full h-64 md:h-full object-cover"
+                className="w-full h-64 md:h-full object-cover rounded-xl"
               />
               {images.length > 1 && (
                 <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
@@ -195,10 +246,6 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, onClose
                     <p className="font-medium text-gray-800">{shelter.shelter_name || shelterProfile.username}</p>
                   </div>
                   <div>
-                    <p className="text-gray-500 text-xs">Type:</p>
-                    <p className="font-medium text-gray-800">{shelter.shelter_type || '—'}</p>
-                  </div>
-                  <div>
                     <p className="text-gray-500 text-xs">Location:</p>
                     <p className="font-medium text-gray-800">{shelter.address || shelterProfile.city || '—'}</p>
                   </div>
@@ -227,6 +274,15 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, onClose
                 </div>
               )}
 
+              {cancelSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Adoption request cancelled successfully.
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 {pet.adoption_fee != null && !isAdopted && (
                   <p className="text-sm font-medium text-gray-700">
@@ -234,10 +290,67 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, onClose
                   </p>
                 )}
 
-                {isAdopted ? (
+                {checkingExisting ? (
+                  <span className="ml-auto px-4 py-2 text-gray-400 text-sm">Checking...</span>
+                ) : isAdopted ? (
                   <span className="ml-auto px-4 py-2 bg-gray-300 text-gray-600 rounded-full text-sm font-medium cursor-not-allowed">
                     Already Adopted
                   </span>
+                ) : isViewerAdopter && !isViewerShelterOwner && existingReq ? (
+                  /* Existing request — show status + cancel */
+                  showCancelConfirm ? (
+                    <div className="ml-auto flex flex-col items-end gap-2 w-full">
+                      <p className="text-sm text-gray-600 text-right">Are you sure you want to cancel this adoption request?</p>
+                      <textarea
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        placeholder="Reason for cancellation (optional)"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none"
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setShowCancelConfirm(false); setCancelReason(''); }}
+                          disabled={isCancelling}
+                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors"
+                        >
+                          Keep Request
+                        </button>
+                        <button
+                          onClick={handleCancelRequest}
+                          disabled={isCancelling}
+                          className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full text-sm font-semibold transition-colors disabled:opacity-50"
+                        >
+                          {isCancelling ? 'Cancelling...' : 'Confirm Cancel'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="ml-auto flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                          existingReq.status === 'pending'
+                            ? 'bg-amber-100 text-amber-700'
+                            : existingReq.status === 'approved'
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {existingReq.status === 'pending' ? 'Request Pending' : existingReq.status === 'approved' ? 'Approved' : existingReq.status}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {existingReq.created_at ? new Date(existingReq.created_at).toLocaleDateString() : ''}
+                        </span>
+                      </div>
+                      {existingReq.status === 'pending' && (
+                        <button
+                          onClick={() => setShowCancelConfirm(true)}
+                          className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-full text-sm font-medium transition-colors border border-red-200"
+                        >
+                          Cancel Request
+                        </button>
+                      )}
+                    </div>
+                  )
                 ) : isViewerAdopter && !isViewerShelterOwner ? (
                   showConfirm ? (
                     <div className="ml-auto flex flex-col items-end gap-2">
@@ -270,7 +383,7 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, onClose
                     </button>
                   )
                 ) : (
-                  /* Not an adopter — don't show button (shelters, regular users, etc.) */
+                  /* Not an adopter — don't show button */
                   !isAdopted && (
                     <span className="ml-auto text-sm text-gray-400 italic">
                       Sign in as an adopter to apply

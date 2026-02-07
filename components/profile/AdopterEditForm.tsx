@@ -31,7 +31,7 @@ export function AdopterEditForm({ profile, onCancel, onSaved }: AdopterEditFormP
   const [gender, setGender] = useState(p.gender || '');
   const [contactNumber, setContactNumber] = useState(p.contact_number || '');
   const [address, setAddress] = useState(profile.address || '');
-  const [email, setEmail] = useState(p.email || '');
+  const [email] = useState(p.email || '');
   const [occupation, setOccupation] = useState(p.occupation || '');
   const [businessName, setBusinessName] = useState(p.business_name || '');
   const [socialMediaLink, setSocialMediaLink] = useState(p.social_media_link || '');

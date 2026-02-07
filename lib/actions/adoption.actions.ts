@@ -96,6 +96,53 @@ export async function createAdoptionRequest(
   return { success: true, data };
 }
 
+export async function cancelAdoptionRequest(
+  requestId: string,
+  _reason?: string
+) {
+  const supabase = await createClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  // Get the request to verify ownership and get pet_id
+  const { data: request } = await supabase
+    .from('adoption_requests')
+    .select('id, adopter_id, pet_id, status')
+    .eq('id', requestId)
+    .single();
+
+  if (!request) return { error: 'Request not found' };
+  if (request.adopter_id !== user.id) return { error: 'Not authorized' };
+  if (request.status !== 'pending') return { error: 'Only pending requests can be cancelled' };
+
+  // Delete the request
+  const { error } = await supabase
+    .from('adoption_requests')
+    .delete()
+    .eq('id', requestId);
+
+  if (error) return { error: error.message };
+
+  // Check if any other pending requests exist for this pet — if not, reset to available
+  const { data: otherRequests } = await supabase
+    .from('adoption_requests')
+    .select('id')
+    .eq('pet_id', request.pet_id)
+    .in('status', ['pending', 'approved']);
+
+  if (!otherRequests || otherRequests.length === 0) {
+    await supabase
+      .from('pets')
+      .update({ status: 'available' })
+      .eq('id', request.pet_id);
+  }
+
+  revalidatePath('/dashboard');
+  revalidatePath('/shelter');
+  return { success: true };
+}
+
 export async function updateAdoptionRequestStatus(
   requestId: string,
   status: AdoptionStatus,
@@ -257,6 +304,7 @@ export async function getAdoptionRequests(shelterId: string, status?: AdoptionSt
         email,
         phone,
         avatar_url,
+        address,
         city,
         state,
         adopter_profile:adopter_profiles(*)
@@ -293,7 +341,8 @@ export async function getUserAdoptionRequests(userId: string) {
           username,
           avatar_url,
           phone,
-          email
+          email,
+          shelter_profile:shelter_profiles(*)
         )
       )
     `)
@@ -322,6 +371,26 @@ export async function getAdoptionRequestForPet(petId: string, adopterId: string)
   }
 
   return { data };
+}
+
+export async function getMyAdoptionRequestForPet(petId: string) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { data: null };
+
+  const { data, error } = await supabase
+    .from('adoption_requests')
+    .select('id, status, created_at')
+    .eq('pet_id', petId)
+    .eq('adopter_id', user.id)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    return { error: error.message };
+  }
+
+  return { data: data || null };
 }
 
 export async function getAdoptionRequestCountForPet(petId: string) {

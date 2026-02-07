@@ -10,7 +10,7 @@ import { getAdoptionRequestForPet } from '@/lib/actions/adoption.actions';
 import { createClient } from '@/lib/supabase/client';
 import { ImageCarousel } from './ImageCarousel';
 import { PetDetailModal } from '../pets/PetDetailModal';
-import { AdoptionApplicationModal } from '../pets/AdoptionApplicationModal';
+import AdoptPetModal from '../profile/AdoptPetModal';
 
 interface FeedListProps {
   initialPosts: PostWithDetails[];
@@ -54,8 +54,8 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [showAllComments, setShowAllComments] = useState<Record<string, boolean>>({});
   const [selectedPetPost, setSelectedPetPost] = useState<PostWithDetails | null>(null);
-  const [showApplicationModal, setShowApplicationModal] = useState<{ petId: string; petName: string; shelterName?: string } | null>(null);
-  const [existingRequests, setExistingRequests] = useState<Record<string, { id: string; status: string } | null>>({});
+  const [showAdoptModal, setShowAdoptModal] = useState<{ pet: any; shelterUser: any } | null>(null);
+  const [existingRequests, setExistingRequests] = useState<Record<string, { id: string; status: string; created_at?: string } | null>>({});
   const [adoptTooltip, setAdoptTooltip] = useState<string | null>(null);
   // Track posts with pending like actions to prevent realtime race conditions
   const pendingLikes = useRef<Set<string>>(new Set());
@@ -335,15 +335,21 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
   const handleAdoptClick = useCallback((post: PostWithDetails) => {
     if (!post.pet) return;
     const postUser = Array.isArray(post.user) ? post.user[0] : post.user;
-    setShowApplicationModal({
-      petId: post.pet.id,
-      petName: post.pet.name,
-      shelterName: postUser?.username,
+    setShowAdoptModal({
+      pet: {
+        ...post.pet,
+        post: {
+          description: post.description,
+          media_urls: post.media_urls as string[],
+          tags: post.tags || [],
+        },
+      },
+      shelterUser: postUser,
     });
   }, []);
 
   const handleAdoptionSuccess = useCallback((petId: string) => {
-    setShowApplicationModal(null);
+    setShowAdoptModal(null);
     setSelectedPetPost(null);
     setExistingRequests(prev => ({ ...prev, [petId]: { id: 'new', status: 'pending' } }));
   }, []);
@@ -719,23 +725,30 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
           onClose={() => setSelectedPetPost(null)}
           onAdopt={() => {
             const postUser = Array.isArray(selectedPetPost.user) ? selectedPetPost.user[0] : selectedPetPost.user;
-            setShowApplicationModal({
-              petId: selectedPetPost.pet!.id,
-              petName: selectedPetPost.pet!.name,
-              shelterName: postUser?.username,
+            setSelectedPetPost(null);
+            setShowAdoptModal({
+              pet: {
+                ...selectedPetPost.pet!,
+                post: {
+                  description: selectedPetPost.description,
+                  media_urls: selectedPetPost.media_urls as string[],
+                  tags: selectedPetPost.tags || [],
+                },
+              },
+              shelterUser: postUser,
             });
           }}
         />
       )}
 
-      {/* Adoption Application Modal */}
-      {showApplicationModal && (
-        <AdoptionApplicationModal
-          petId={showApplicationModal.petId}
-          petName={showApplicationModal.petName}
-          shelterName={showApplicationModal.shelterName}
-          onClose={() => setShowApplicationModal(null)}
-          onSuccess={() => handleAdoptionSuccess(showApplicationModal.petId)}
+      {/* Adopt Pet Modal — same flow as shelter profile */}
+      {showAdoptModal && (
+        <AdoptPetModal
+          pet={showAdoptModal.pet}
+          viewerRole={userRole}
+          existingRequest={existingRequests[showAdoptModal.pet.id] || undefined}
+          onClose={() => setShowAdoptModal(null)}
+          onSuccess={() => handleAdoptionSuccess(showAdoptModal.pet.id)}
         />
       )}
     </div>

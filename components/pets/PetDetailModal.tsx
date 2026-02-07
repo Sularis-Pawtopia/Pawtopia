@@ -4,45 +4,7 @@ import { useState } from 'react';
 import { X, MapPin, Heart, Shield, DollarSign, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface PetDetailModalProps {
-  pet: {
-    id: string;
-    name: string;
-    species: string;
-    breed?: string;
-    age_years?: number;
-    age_months?: number;
-    gender: string;
-    size: string;
-    color?: string;
-    weight?: number;
-    status: string;
-    is_vaccinated: boolean;
-    is_spayed_neutered: boolean;
-    medical_history?: string;
-    temperament?: string[];
-    good_with_kids?: boolean;
-    good_with_dogs?: boolean;
-    good_with_cats?: boolean;
-    energy_level?: string;
-    special_needs?: string;
-    adoption_fee?: number;
-    post?: {
-      description?: string;
-      media_urls?: string[];
-      tags?: string[];
-    };
-    shelter?: {
-      id: string;
-      username: string;
-      avatar_url?: string;
-      city?: string;
-      state?: string;
-      shelter_profile?: {
-        shelter_name?: string;
-        phone?: string;
-      };
-    };
-  };
+  pet: any;
   userRole?: string;
   existingRequest?: { id: string; status: string } | null;
   onClose: () => void;
@@ -240,7 +202,7 @@ export function PetDetailModal({ pet, userRole, existingRequest, onClose, onAdop
 
               {pet.temperament && pet.temperament.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {pet.temperament.map((trait) => (
+                  {pet.temperament.map((trait: string) => (
                     <span key={trait} className="px-2.5 py-1 bg-amber-50 text-amber-700 text-xs rounded-full capitalize">
                       {trait}
                     </span>
@@ -252,7 +214,7 @@ export function PetDetailModal({ pet, userRole, existingRequest, onClose, onAdop
             {/* Tags */}
             {pet.post?.tags && pet.post.tags.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
-                {pet.post.tags.map((tag) => (
+                {pet.post.tags.map((tag: string) => (
                   <span key={tag} className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
                     #{tag}
                   </span>

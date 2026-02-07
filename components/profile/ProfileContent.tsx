@@ -47,6 +47,9 @@ export function ProfileContent({ profile }: ProfileContentProps) {
   const [loadingPending, setLoadingPending] = useState(false);
   const [showAddPet, setShowAddPet] = useState(false);
 
+  // Selected pending request for modal
+  const [selectedPendingReq, setSelectedPendingReq] = useState<any | null>(null);
+
   // Load data when tab changes (shelter only)
   useEffect(() => {
     if (!isShelter) return;
@@ -425,9 +428,37 @@ export function ProfileContent({ profile }: ProfileContentProps) {
           ) : (
             <div className="space-y-4">
               {pendingRequests.map((req: any) => (
-                <AdoptionRequestCard key={req.id} request={req} />
+                <AdoptionRequestCard
+                  key={req.id}
+                  request={req}
+                  onClick={() => setSelectedPendingReq(req)}
+                />
               ))}
             </div>
+          )}
+
+          {selectedPendingReq && selectedPendingReq.pet && (
+            <AdoptPetModal
+              pet={selectedPendingReq.pet}
+              shelterProfile={selectedPendingReq.pet.shelter ? {
+                id: selectedPendingReq.pet.shelter.id,
+                username: selectedPendingReq.pet.shelter.username,
+                phone: selectedPendingReq.pet.shelter.phone,
+                profile: selectedPendingReq.pet.shelter.shelter_profile?.[0] || selectedPendingReq.pet.shelter.shelter_profile || null,
+              } : undefined}
+              viewerRole={profile.viewerRole}
+              existingRequest={{ id: selectedPendingReq.id, status: selectedPendingReq.status, created_at: selectedPendingReq.created_at }}
+              onClose={() => setSelectedPendingReq(null)}
+              onSuccess={() => {
+                // Refresh the pending requests list
+                setPendingRequests([]);
+                setLoadingPending(true);
+                getUserAdoptionRequests(profile.id).then((res) => {
+                  setPendingRequests(res.data || []);
+                  setLoadingPending(false);
+                });
+              }}
+            />
           )}
         </div>
       )}
@@ -688,7 +719,7 @@ function AdopterPetCard({ pet, onClick }: { pet: any; onClick?: () => void }) {
   );
 }
 
-function AdoptionRequestCard({ request }: { request: any }) {
+function AdoptionRequestCard({ request, onClick }: { request: any; onClick?: () => void }) {
   const pet = request.pet;
   const mediaUrls = pet?.post?.media_urls;
   const imageUrl = Array.isArray(mediaUrls) && mediaUrls.length > 0 ? mediaUrls[0] : null;
@@ -703,7 +734,10 @@ function AdoptionRequestCard({ request }: { request: any }) {
   const st = statusConfig[request.status] || statusConfig.pending;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+    <button
+      onClick={onClick}
+      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow w-full text-left cursor-pointer"
+    >
       <div className="flex flex-col sm:flex-row">
         {/* Pet image */}
         <div className="sm:w-40 h-36 sm:h-auto bg-gray-100 flex-shrink-0">
@@ -765,9 +799,11 @@ function AdoptionRequestCard({ request }: { request: any }) {
               <span className="font-medium">Note:</span> {request.notes}
             </div>
           )}
+
+          <p className="mt-3 text-xs text-primary-500 font-medium">Click to view details &rarr;</p>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 

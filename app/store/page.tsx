@@ -1,11 +1,9 @@
 import { getStoreProducts } from '@/lib/actions/store.actions';
-import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { StoreHeader } from '@/components/store/StoreHeader';
 import { ProductGrid } from '@/components/store/ProductGrid';
 import { CategoryFilters } from '@/components/store/CategoryFilters';
 
 export default async function StorePage() {
-  const user = await getCurrentUser();
   const productsResult = await getStoreProducts();
   const products = productsResult.success ? productsResult.data : [];
 

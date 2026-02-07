@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { updateAdoptionRequestStatus, completeAdoption } from '@/lib/actions/adoption.actions';
-import { Check, X, Eye, Loader2, User, Phone, Mail, MapPin, Calendar, FileText, AlertTriangle, Clock } from 'lucide-react';
+import { Check, X, Eye, Loader2, User, FileText, AlertTriangle, Clock } from 'lucide-react';
 
 interface AdoptionRequest {
   id: string;
@@ -30,16 +30,54 @@ interface AdoptionRequest {
     avatar_url?: string;
     city?: string;
     state?: string;
+    address?: string;
     adopter_profile?: {
       first_name?: string;
       last_name?: string;
+      mi?: string;
+      date_of_birth?: string;
+      gender?: string;
+      contact_number?: string;
+      email?: string;
       occupation?: string;
+      business_name?: string;
+      social_media_link?: string;
+      civil_status?: string;
+      income_range?: string;
       household_size?: number;
       has_children?: boolean;
       has_other_pets?: boolean;
       home_type?: string;
       home_ownership?: string;
+      yard_size?: string;
       pet_experience?: string;
+      prompted_by?: string[];
+      first_time_adopter?: string;
+      // Alternative contact
+      alt_first_name?: string;
+      alt_last_name?: string;
+      alt_mi?: string;
+      alt_birth_date?: string;
+      alt_relationship?: string;
+      alt_contact_number?: string;
+      // Questionnaire
+      looking_to_adopt?: string;
+      specific_shelter_animal?: string;
+      ideal_pet_description?: string;
+      building_type?: string;
+      do_you_rent?: string;
+      pet_when_moving?: string;
+      live_with?: string[];
+      household_allergic?: string;
+      pet_caretaker?: string;
+      financial_responsible?: string;
+      vacation_care?: string;
+      hours_alone?: string;
+      introduce_steps?: string;
+      family_support?: string;
+      had_pets_before?: string;
+      home_photos?: string[];
+      valid_id_urls?: string[];
     };
   };
 }
@@ -141,8 +179,10 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
   };
 
   const getAdopterName = (adopter: AdoptionRequest['adopter']) => {
-    if (adopter.adopter_profile?.first_name) {
-      return `${adopter.adopter_profile.first_name} ${adopter.adopter_profile.last_name}`;
+    const raw = adopter.adopter_profile;
+    const profile = Array.isArray(raw) ? raw[0] : raw;
+    if (profile?.first_name) {
+      return `${profile.first_name} ${profile.last_name}`;
     }
     return adopter.username;
   };
@@ -280,99 +320,216 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
 
               {/* Expanded Details */}
               {expandedRequest === request.id && (
-                <div className="px-4 py-4 border-t border-gray-100 space-y-4">
-                  {/* Applicant Contact */}
+                (() => {
+                  // Normalize adopter_profile — Supabase may return it as array or object
+                  const rawProfile = request.adopter.adopter_profile;
+                  const profile: AdoptionRequest['adopter']['adopter_profile'] =
+                    Array.isArray(rawProfile) ? rawProfile[0] : rawProfile;
+
+                  return (
+                <div className="px-4 py-4 border-t border-gray-100 space-y-5">
+                  {/* Header */}
                   <div>
-                    <h4 className="font-medium text-gray-900 mb-2">Contact Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        {request.adopter.email}
+                    <h3 className="text-lg font-bold text-gray-900">Full Adopter Information</h3>
+                    <p className="text-sm text-gray-500">Complete details about the adopter.</p>
+                  </div>
+
+                  {/* Request Info + Personal Info cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Request Information */}
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                      <h4 className="font-semibold text-gray-900 mb-3">Request Information</h4>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex gap-2">
+                          <span className="font-medium text-gray-700 whitespace-nowrap">Adopter Name:</span>
+                          <span className="text-gray-900">{request.adopter.username}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="font-medium text-gray-700 whitespace-nowrap">Email:</span>
+                          <span className="text-gray-900">{request.adopter.email}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="font-medium text-gray-700 whitespace-nowrap">Status:</span>
+                          <span className={`capitalize ${
+                            request.status === 'pending' ? 'text-amber-600' :
+                            request.status === 'approved' ? 'text-green-600' :
+                            request.status === 'rejected' ? 'text-red-600' : 'text-blue-600'
+                          }`}>{request.status}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="font-medium text-gray-700 whitespace-nowrap">Reviewed At:</span>
+                          <span className="text-gray-900">{request.reviewed_at ? formatDate(request.reviewed_at) : 'N/A'}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <span className="font-medium text-gray-700 whitespace-nowrap">Submitted At:</span>
+                          <span className="text-gray-900">{formatDate(request.created_at)}</span>
+                        </div>
                       </div>
-                      {request.adopter.phone && (
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <Phone className="w-4 h-4 text-gray-400" />
-                          {request.adopter.phone}
+                    </div>
+
+                    {/* Personal Information */}
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                      <h4 className="font-semibold text-gray-900 mb-3">Personal Information</h4>
+                      {profile ? (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                          {profile.first_name && (
+                            <div className="col-span-2">
+                              <span className="font-medium text-gray-700">Name: </span>
+                              <span className="text-gray-900 uppercase">
+                                {profile.first_name} {profile.mi ? `${profile.mi} ` : ''}{profile.last_name}
+                              </span>
+                            </div>
+                          )}
+                          {profile.date_of_birth && (
+                            <div>
+                              <span className="font-medium text-gray-700">Birth Date: </span>
+                              <span className="text-gray-900">{new Date(profile.date_of_birth).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                            </div>
+                          )}
+                          {profile.gender && (
+                            <div>
+                              <span className="font-medium text-gray-700">Gender: </span>
+                              <span className="text-gray-900 capitalize">{profile.gender}</span>
+                            </div>
+                          )}
+                          {(profile.email || request.adopter.email) && (
+                            <div>
+                              <span className="font-medium text-gray-700">Email: </span>
+                              <span className="text-gray-900">{profile.email || request.adopter.email}</span>
+                            </div>
+                          )}
+                          {(profile.contact_number || request.adopter.phone) && (
+                            <div>
+                              <span className="font-medium text-gray-700">Contact: </span>
+                              <span className="text-gray-900">{profile.contact_number || request.adopter.phone}</span>
+                            </div>
+                          )}
+                          {(request.adopter.address || request.adopter.city) && (
+                            <div>
+                              <span className="font-medium text-gray-700">Address: </span>
+                              <span className="text-gray-900">{[request.adopter.address, request.adopter.city, request.adopter.state].filter(Boolean).join(', ')}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span className="font-medium text-gray-700">Business Name: </span>
+                            <span className="text-gray-900">{profile.business_name || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Occupation: </span>
+                            <span className="text-gray-900">{profile.occupation || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Social Media: </span>
+                            <span className="text-gray-900">{profile.social_media_link || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span className="font-medium text-gray-700">Marital Status: </span>
+                            <span className="text-gray-900 capitalize">{profile.civil_status || 'N/A'}</span>
+                          </div>
                         </div>
-                      )}
-                      {(request.adopter.city || request.adopter.state) && (
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <MapPin className="w-4 h-4 text-gray-400" />
-                          {[request.adopter.city, request.adopter.state].filter(Boolean).join(', ')}
-                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">No personal information provided</p>
                       )}
                     </div>
                   </div>
 
-                  {/* Adopter Profile */}
-                  {request.adopter.adopter_profile && (
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Household Information</h4>
+                  {/* Questionnaire */}
+                  {profile && (() => {
+                    const questions: { label: string; value: string | undefined | null }[] = [
+                      { label: 'What kind of animal are you looking to adopt?', value: profile.looking_to_adopt },
+                      { label: 'Is there a specific shelter animal you want to adopt?', value: profile.specific_shelter_animal },
+                      { label: 'Describe your ideal pet (sex, age, appearance, temperament, etc.):', value: profile.ideal_pet_description },
+                      { label: 'Type of building/residence:', value: profile.building_type },
+                      { label: 'Do you rent?', value: profile.do_you_rent },
+                      { label: 'What happens to your pet if or when you move?', value: profile.pet_when_moving },
+                      { label: 'Who do you live with?', value: Array.isArray(profile.live_with) ? profile.live_with.join(', ') : profile.live_with },
+                      { label: 'Allergy Response:', value: profile.household_allergic },
+                      { label: 'Who will be responsible for feeding, grooming, and generally caring for your pet?', value: profile.pet_caretaker },
+                      { label: "Who will be financially responsible for your pet's needs (food, vet bills, etc.)?", value: profile.financial_responsible },
+                      { label: 'Who will look after your pet if you go on vacation or in case of emergency?', value: profile.vacation_care },
+                      { label: 'How many hours in your average work day will your pet be left alone?', value: profile.hours_alone },
+                      { label: 'What steps will you take to introduce your new pet to his/her surroundings?', value: profile.introduce_steps },
+                      { label: 'Does your family support this adoption?', value: profile.family_support },
+                      { label: 'Have you had pets before?', value: profile.had_pets_before },
+                      { label: 'First-time adopter?', value: profile.first_time_adopter },
+                    ];
+                    const filled = questions.filter(q => q.value);
+                    if (filled.length === 0) return null;
+                    return (
+                      <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <h4 className="font-semibold text-gray-900 mb-3">Questionnaire</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {filled.map((q, i) => (
+                            <div key={i} className="bg-white rounded-lg p-3 border border-gray-200">
+                              <p className="text-sm font-semibold text-gray-800 mb-1">{q.label}</p>
+                              <p className="text-sm text-gray-600">{q.value}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Alternative Contact */}
+                  {profile?.alt_first_name && (
+                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                      <h4 className="font-semibold text-gray-900 mb-3">Alternative Contact Person</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                        {request.adopter.adopter_profile.occupation && (
-                          <div className="bg-gray-50 rounded-lg p-2.5">
-                            <span className="text-gray-500 text-xs block">Occupation</span>
-                            <p className="font-medium text-gray-900">{request.adopter.adopter_profile.occupation}</p>
-                          </div>
-                        )}
-                        {request.adopter.adopter_profile.household_size && (
-                          <div className="bg-gray-50 rounded-lg p-2.5">
-                            <span className="text-gray-500 text-xs block">Household Size</span>
-                            <p className="font-medium text-gray-900">{request.adopter.adopter_profile.household_size}</p>
-                          </div>
-                        )}
-                        {request.adopter.adopter_profile.home_type && (
-                          <div className="bg-gray-50 rounded-lg p-2.5">
-                            <span className="text-gray-500 text-xs block">Home Type</span>
-                            <p className="font-medium text-gray-900 capitalize">{request.adopter.adopter_profile.home_type}</p>
-                          </div>
-                        )}
-                        {request.adopter.adopter_profile.home_ownership && (
-                          <div className="bg-gray-50 rounded-lg p-2.5">
-                            <span className="text-gray-500 text-xs block">Ownership</span>
-                            <p className="font-medium text-gray-900 capitalize">{request.adopter.adopter_profile.home_ownership}</p>
-                          </div>
-                        )}
-                        <div className="bg-gray-50 rounded-lg p-2.5">
-                          <span className="text-gray-500 text-xs block">Has Children</span>
-                          <p className="font-medium text-gray-900">{request.adopter.adopter_profile.has_children ? 'Yes' : 'No'}</p>
+                        <div>
+                          <span className="font-medium text-gray-700">Name: </span>
+                          <span className="text-gray-900">{profile.alt_first_name} {profile.alt_mi ? `${profile.alt_mi} ` : ''}{profile.alt_last_name}</span>
                         </div>
-                        <div className="bg-gray-50 rounded-lg p-2.5">
-                          <span className="text-gray-500 text-xs block">Has Other Pets</span>
-                          <p className="font-medium text-gray-900">{request.adopter.adopter_profile.has_other_pets ? 'Yes' : 'No'}</p>
-                        </div>
-                        {request.adopter.adopter_profile.pet_experience && (
-                          <div className="bg-gray-50 rounded-lg p-2.5 col-span-2 md:col-span-3">
-                            <span className="text-gray-500 text-xs block">Pet Experience</span>
-                            <p className="font-medium text-gray-900">{request.adopter.adopter_profile.pet_experience}</p>
+                        {profile.alt_relationship && (
+                          <div>
+                            <span className="font-medium text-gray-700">Relationship: </span>
+                            <span className="text-gray-900">{profile.alt_relationship}</span>
+                          </div>
+                        )}
+                        {profile.alt_contact_number && (
+                          <div>
+                            <span className="font-medium text-gray-700">Contact: </span>
+                            <span className="text-gray-900">{profile.alt_contact_number}</span>
                           </div>
                         )}
                       </div>
                     </div>
                   )}
 
-                  {/* Application Responses */}
-                  {request.application_data && Object.keys(request.application_data).length > 0 && (
-                    <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Application Responses</h4>
-                      <div className="space-y-3 text-sm">
-                        {Object.entries(request.application_data).map(([key, value]) => (
-                          <div key={key} className="bg-gray-50 p-3 rounded-lg">
-                            <span className="text-gray-500 text-xs uppercase tracking-wide font-medium">
-                              {key.replace(/_/g, ' ')}
-                            </span>
-                            <p className="mt-1 text-gray-900">{String(value)}</p>
+                  {/* Home Photos & Valid IDs */}
+                  {profile && ((profile.home_photos && profile.home_photos.length > 0) || (profile.valid_id_urls && profile.valid_id_urls.length > 0)) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {profile.home_photos && profile.home_photos.length > 0 && (
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <h4 className="font-semibold text-gray-900 mb-3">Home Photos</h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {profile.home_photos.map((url, i) => (
+                              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img
+                                  src={url}
+                                  alt={`Home photo ${i + 1}`}
+                                  className="w-full h-28 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition"
+                                />
+                              </a>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Reviewed Info */}
-                  {request.reviewed_at && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 pt-2 border-t border-gray-100">
-                      <Calendar className="w-3 h-3" />
-                      Reviewed on {formatDate(request.reviewed_at)}
+                        </div>
+                      )}
+                      {profile.valid_id_urls && profile.valid_id_urls.length > 0 && (
+                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                          <h4 className="font-semibold text-gray-900 mb-3">Valid IDs</h4>
+                          <div className="grid grid-cols-2 gap-2">
+                            {profile.valid_id_urls.map((url, i) => (
+                              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                                <img
+                                  src={url}
+                                  alt={`Valid ID ${i + 1}`}
+                                  className="w-full h-28 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -384,6 +541,8 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
                     </div>
                   )}
                 </div>
+                  );
+                })()
               )}
             </div>
           );
