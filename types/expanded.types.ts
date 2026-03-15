@@ -14,7 +14,7 @@ export type UserRoleType =
   | 'volunteer'
   | 'shelter'
   | 'ngo'
-  | 'city_pound';
+  | 'dvmf';
 
 export type ReportType = 
   | 'abuse'
@@ -91,13 +91,13 @@ export interface UserRoleUpdate {
 }
 
 // =============================================
-// ORGANIZATION PROFILES (NGO, City Pound)
+// ORGANIZATION PROFILES (NGO, DVMF)
 // =============================================
 
 export interface OrganizationProfile {
   id: string;
   user_id: string;
-  organization_type: 'ngo' | 'city_pound';
+  organization_type: 'ngo' | 'dvmf';
   organization_name: string;
   registration_number: string | null;
   description: string | null;
@@ -123,7 +123,7 @@ export interface OrganizationProfile {
 export interface OrganizationProfileInsert {
   id?: string;
   user_id: string;
-  organization_type: 'ngo' | 'city_pound';
+  organization_type: 'ngo' | 'dvmf';
   organization_name: string;
   registration_number?: string | null;
   description?: string | null;
@@ -367,7 +367,7 @@ export interface EventVolunteerUpdate {
 export interface EducationalContent {
   id: string;
   author_id: string;
-  author_type: 'ngo' | 'city_pound' | 'admin';
+  author_type: 'ngo' | 'dvmf' | 'admin';
   title: string;
   slug: string | null;
   summary: string | null;
@@ -390,7 +390,7 @@ export interface EducationalContent {
 export interface EducationalContentInsert {
   id?: string;
   author_id: string;
-  author_type: 'ngo' | 'city_pound' | 'admin';
+  author_type: 'ngo' | 'dvmf' | 'admin';
   title: string;
   slug?: string | null;
   summary?: string | null;
@@ -525,7 +525,7 @@ export interface VolunteerApplicationFormData {
 }
 
 export interface OrganizationApplicationFormData {
-  organization_type: 'ngo' | 'city_pound';
+  organization_type: 'ngo' | 'dvmf';
   organization_name: string;
   registration_number?: string;
   description: string;

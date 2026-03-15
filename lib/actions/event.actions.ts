@@ -24,8 +24,8 @@ export async function getEvents(filters?: {
         users:shelter_id (
           id,
           username,
-          full_name,
-          avatar_url
+          avatar_url,
+          role
         )
       `)
       .order('event_date', { ascending: true });
@@ -76,9 +76,15 @@ export async function createEvent(formData: {
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Check if user is a shelter
-    if (user.user_metadata?.role !== 'shelter') {
-      return { success: false, error: 'Only shelters can create events' };
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    // Check if user is an organizer (role source of truth is users table)
+    if (!profile || !['shelter', 'ngo', 'dvmf'].includes(profile.role)) {
+      return { success: false, error: 'Only verified organizers can create events' };
     }
 
     // First create a post
@@ -109,7 +115,7 @@ export async function createEvent(formData: {
         event_date: formData.event_date,
         end_date: formData.end_date,
         location: formData.location,
-        max_attendees: formData.max_attendees,
+        capacity: formData.max_attendees,
         registration_required: formData.registration_required || false,
       })
       .select()
@@ -122,6 +128,7 @@ export async function createEvent(formData: {
 
     revalidatePath('/events');
     revalidatePath('/shelter');
+    revalidatePath('/dvmf');
     return { success: true, data: event };
   } catch (error) {
     console.error('Create event error:', error);

@@ -1,13 +1,18 @@
 import { getEvents } from '@/lib/actions/event.actions';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
-import { EventGrid } from '@/components/events/EventGrid';
-import { EventFilters } from '@/components/events/EventFilters';
 import { CreateEventButton } from '@/components/events/CreateEventButton';
+import { getFeedPosts } from '@/lib/actions/post.actions';
+import { FeedList } from '@/components/feed/FeedList';
 
 export default async function EventsPage() {
   const user = await getCurrentUser();
-  const eventsResult = await getEvents();
+  const [eventsResult, eventPostsResult] = await Promise.all([
+    getEvents(),
+    getFeedPosts({ post_type: 'event' }),
+  ]);
+
   const events = eventsResult.success ? eventsResult.data : [];
+  const eventPosts = eventPostsResult.data || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -21,7 +26,7 @@ export default async function EventsPage() {
                 Join adoption events, fundraisers, and pet community gatherings
               </p>
             </div>
-            {user?.role === 'shelter' && <CreateEventButton />}
+            {['shelter', 'ngo', 'dvmf'].includes(user?.role || '') && <CreateEventButton />}
           </div>
 
           {/* Quick Stats */}
@@ -42,30 +47,24 @@ export default async function EventsPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Filters Sidebar */}
-          <div className="lg:col-span-1">
-            <EventFilters />
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        {eventPosts.length === 0 ? (
+          <div className="bg-white rounded-lg shadow p-12 text-center">
+            <div className="text-6xl mb-4">📅</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No Events Found
+            </h3>
+            <p className="text-gray-600">
+              Check back soon for upcoming adoption events and community gatherings!
+            </p>
           </div>
-
-          {/* Events Grid */}
-          <div className="lg:col-span-3">
-            {events?.length === 0 ? (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
-                <div className="text-6xl mb-4">📅</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  No Events Found
-                </h3>
-                <p className="text-gray-600">
-                  Check back soon for upcoming adoption events and community gatherings!
-                </p>
-              </div>
-            ) : (
-              <EventGrid events={events || []} />
-            )}
-          </div>
-        </div>
+        ) : (
+          <FeedList
+            initialPosts={eventPosts as any}
+            currentUserId={user?.id}
+            userRole={user?.role}
+          />
+        )}
       </div>
     </div>
   );

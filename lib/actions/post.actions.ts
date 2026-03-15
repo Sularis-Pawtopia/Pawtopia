@@ -245,6 +245,87 @@ export async function getPostWithComments(postId: string) {
   return { data: post };
 }
 
+export async function deletePost(postId: string) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  // Verify ownership
+  const { data: post } = await supabase
+    .from('posts')
+    .select('user_id')
+    .eq('id', postId)
+    .single();
+
+  if (!post || post.user_id !== user.id) {
+    return { error: 'Not authorized' };
+  }
+
+  const { error } = await supabase
+    .from('posts')
+    .delete()
+    .eq('id', postId)
+    .eq('user_id', user.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/dashboard');
+  revalidatePath('/shelter');
+  revalidatePath('/dvmf');
+  revalidatePath('/events');
+  return { success: true };
+}
+
+export async function updatePost(postId: string, data: { description: string }) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { data: existing } = await supabase
+    .from('posts')
+    .select('user_id')
+    .eq('id', postId)
+    .single();
+
+  if (!existing || existing.user_id !== user.id) {
+    return { error: 'Not authorized' };
+  }
+
+  const { data: updated, error } = await supabase
+    .from('posts')
+    .update({ description: data.description })
+    .eq('id', postId)
+    .eq('user_id', user.id)
+    .select()
+    .single();
+
+  if (error) return { error: error.message };
+
+  revalidatePath('/dashboard');
+  revalidatePath('/shelter');
+  revalidatePath('/dvmf');
+  revalidatePath('/events');
+  return { success: true, data: updated };
+}
+
+export async function getEventPostByEventId(eventId: string) {
+  const supabase = await createClient();
+
+  const { data: event, error: eventError } = await supabase
+    .from('events')
+    .select('id, post_id')
+    .eq('id', eventId)
+    .single();
+
+  if (eventError || !event) {
+    return { error: eventError?.message || 'Event not found' };
+  }
+
+  return getPostWithComments(event.post_id);
+}
+
 export async function createFeedPost(
   description: string,
   mediaUrls: string[],
@@ -276,30 +357,6 @@ export async function createFeedPost(
 
   revalidatePath('/dashboard');
   return { success: true, data };
-}
-
-export async function deletePost(postId: string) {
-  const supabase = await createClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  
-  if (!user) {
-    return { error: 'Not authenticated' };
-  }
-
-  const { error } = await supabase
-    .from('posts')
-    .delete()
-    .eq('id', postId)
-    .eq('user_id', user.id);
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  revalidatePath('/dashboard');
-  revalidatePath('/shelter');
-  return { success: true };
 }
 
 export async function savePost(postId: string) {

@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, MessageCircle, Bookmark, MapPin, Calendar, PawPrint } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, MapPin, Calendar, PawPrint, MoreHorizontal, Pencil, Trash2, Archive, ArchiveX } from 'lucide-react';
 import { PostWithDetails, CommentWithUser } from '@/types';
-import { likePost, savePost, createComment } from '@/lib/actions/post.actions';
+import { likePost, savePost, createComment, deletePost, updatePost } from '@/lib/actions/post.actions';
 import { getAdoptionRequestForPet } from '@/lib/actions/adoption.actions';
 import { createClient } from '@/lib/supabase/client';
 import { ImageCarousel } from './ImageCarousel';
@@ -57,6 +57,12 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
   const [showAdoptModal, setShowAdoptModal] = useState<{ pet: any; shelterUser: any } | null>(null);
   const [existingRequests, setExistingRequests] = useState<Record<string, { id: string; status: string; created_at?: string } | null>>({});
   const [adoptTooltip, setAdoptTooltip] = useState<string | null>(null);
+  const [openKebab, setOpenKebab] = useState<string | null>(null);
+  const [editingPost, setEditingPost] = useState<{ id: string; description: string } | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [editPending, setEditPending] = useState(false);
+  const [editError, setEditError] = useState('');
+  const kebabRef = useRef<HTMLDivElement | null>(null);
   // Track posts with pending like actions to prevent realtime race conditions
   const pendingLikes = useRef<Set<string>>(new Set());
   // Debounce timers for realtime like count fetches
@@ -66,6 +72,49 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
   useEffect(() => {
     setPosts(initialPosts);
   }, [initialPosts]);
+
+  // Close kebab when clicking outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (kebabRef.current && !kebabRef.current.contains(e.target as Node)) {
+        setOpenKebab(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleDeletePost = useCallback(async (postId: string) => {
+    setOpenKebab(null);
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    const result = await deletePost(postId);
+    if (result.error) {
+      alert(result.error);
+      return;
+    }
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
+  const openEditModal = useCallback((post: PostWithDetails) => {
+    setOpenKebab(null);
+    setEditingPost({ id: post.id, description: post.description });
+    setEditDescription(post.description);
+    setEditError('');
+  }, []);
+
+  const handleEditSubmit = useCallback(async () => {
+    if (!editingPost) return;
+    setEditPending(true);
+    setEditError('');
+    const result = await updatePost(editingPost.id, { description: editDescription });
+    setEditPending(false);
+    if (result.error) {
+      setEditError(result.error);
+      return;
+    }
+    setPosts((prev) => prev.map((p) => p.id === editingPost.id ? { ...p, description: editDescription } : p));
+    setEditingPost(null);
+  }, [editingPost, editDescription]);
 
   // Store postIds in a ref to avoid subscription churn
   const postIdsRef = useRef<string[]>([]);
@@ -400,9 +449,59 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
                     )}
                   </div>
                 </Link>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${tag.color}`}>
-                  {tag.label}
-                </span>
+
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${tag.color}`}>
+                    {tag.label}
+                  </span>
+
+                  {/* Kebab — only visible to the post owner */}
+                  {currentUserId && postUser.id === currentUserId && (
+                    <div className="relative" ref={openKebab === post.id ? kebabRef : null}>
+                      <button
+                        onClick={() => setOpenKebab(openKebab === post.id ? null : post.id)}
+                        className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
+                        aria-label="Post options"
+                      >
+                        <MoreHorizontal className="w-5 h-5" />
+                      </button>
+
+                      {openKebab === post.id && (
+                        <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-30">
+                          <button
+                            onClick={() => openEditModal(post)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Edit post
+                          </button>
+                          <button
+                            onClick={() => handleDeletePost(post.id)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete post
+                          </button>
+                          <hr className="my-1 border-gray-100" />
+                          <button
+                            disabled
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed"
+                          >
+                            <Archive className="w-4 h-4" />
+                            Move to archive
+                          </button>
+                          <button
+                            disabled
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 cursor-not-allowed"
+                          >
+                            <ArchiveX className="w-4 h-4" />
+                            Move to trash
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Post Image(s) */}
@@ -697,6 +796,59 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
             </article>
           );
         })
+      )}
+
+      {/* Edit Post Modal */}
+      {editingPost && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => setEditingPost(null)}
+        >
+          <div
+            className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-900">Edit post</h2>
+              <button
+                onClick={() => setEditingPost(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            {editError && (
+              <div className="mb-3 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+                {editError}
+              </div>
+            )}
+
+            <textarea
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-400 focus:border-transparent outline-none resize-none"
+              rows={5}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              autoFocus
+            />
+
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setEditingPost(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                disabled={editPending || !editDescription.trim()}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 disabled:opacity-50"
+              >
+                {editPending ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Pet Detail Modal */}

@@ -28,7 +28,7 @@ export async function getUserProfile(userId: string) {
     // Get role-specific profile
     let profileData: any = null;
 
-    if (user.role === 'shelter') {
+    if (user.role === 'shelter' || user.role === 'dvmf') {
       const { data: shelterProfile } = await supabase
         .from('shelter_profiles')
         .select('*')

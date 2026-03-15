@@ -80,18 +80,18 @@ export async function getUserPermissions(
     
     const permissions: UserPermissions = {
       isAdmin: roles.includes('admin'),
-      isCityPound: roles.includes('city_pound'),
+      isCityPound: roles.includes('dvmf'),
       isNgo: roles.includes('ngo'),
       isShelter: roles.includes('shelter'),
       isVolunteer: roles.includes('volunteer'),
       isAdopter: roles.includes('adopter'),
-      canViewReports: roles.includes('admin') || roles.includes('city_pound'),
-      canManageReports: roles.includes('admin') || roles.includes('city_pound'),
+      canViewReports: roles.includes('admin') || roles.includes('dvmf'),
+      canManageReports: roles.includes('admin') || roles.includes('dvmf'),
       canCreateEvents: roles.includes('admin') || roles.includes('shelter') || 
-                       roles.includes('ngo') || roles.includes('city_pound'),
+                       roles.includes('ngo') || roles.includes('dvmf'),
       canManageVolunteers: roles.includes('admin'),
       canPostEducation: roles.includes('admin') || roles.includes('ngo') || 
-                        roles.includes('city_pound'),
+                        roles.includes('dvmf'),
       canVerifyOrganizations: roles.includes('admin'),
     };
     
@@ -141,8 +141,8 @@ export async function grantRole(
       return { success: false, error: 'Admin privileges required' };
     }
     
-    // Special check: only admins can create city_pound roles
-    if (role === 'city_pound') {
+    // Special check: only admins can create dvmf roles
+    if (role === 'dvmf') {
       // Already verified admin above
     }
     
@@ -259,7 +259,7 @@ export async function getUserWithRoles(
     
     // Get organization profile if applicable
     let organizationProfile = null;
-    if (roles.includes('ngo') || roles.includes('city_pound')) {
+    if (roles.includes('ngo') || roles.includes('dvmf')) {
       const { data } = await supabase
         .from('organization_profiles')
         .select('*')

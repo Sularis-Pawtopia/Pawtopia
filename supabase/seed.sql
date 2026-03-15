@@ -145,7 +145,7 @@ INSERT INTO auth.users (
   crypt('Test1234!', gen_salt('bf')),
   NOW(),
   '{"provider":"email","providers":["email"]}',
-  '{"username":"manila_city_pound","role":"city_pound"}',
+  '{"username":"manila_city_pound","role":"dvmf"}',
   NOW(), NOW(), 'authenticated', 'authenticated',
   '', '', '', ''
 ) ON CONFLICT (id) DO NOTHING;
@@ -285,8 +285,8 @@ INSERT INTO public.users (
   '10000001-0000-0000-0000-000000000001',
   'pound@manila.gov.ph',
   'manila_city_pound',
-  'city_pound',
-  'city_pound',
+  'dvmf',
+  'dvmf',
   true,
   '🏢 Manila City Pound | DVMF Partner | Official government animal welfare facility',
   'https://api.dicebear.com/7.x/avataaars/svg?seed=pound',
@@ -309,7 +309,7 @@ INSERT INTO public.user_roles (user_id, role) VALUES
   ('d0000001-0000-0000-0000-000000000001', 'adopter'),
   ('e0000001-0000-0000-0000-000000000001', 'ngo'),
   ('f0000001-0000-0000-0000-000000000001', 'shelter'),
-  ('10000001-0000-0000-0000-000000000001', 'city_pound')
+  ('10000001-0000-0000-0000-000000000001', 'dvmf')
 ON CONFLICT (user_id, role) DO NOTHING;
 
 -- =============================================
@@ -368,7 +368,7 @@ INSERT INTO public.organization_profiles (
   verification_status, is_active
 ) VALUES (
   '10000001-0000-0000-0000-000000000001',
-  'city_pound',
+  'dvmf',
   'Manila City Veterinary Office - Animal Pound',
   'DVMF-NCR-2020-001',
   'Official animal pound of the City of Manila under the Department of Veterinary Medicine and Fisheries. We handle animal welfare reports, rescues, and adoptions.',

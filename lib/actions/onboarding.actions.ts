@@ -161,7 +161,7 @@ export async function submitCityPoundOnboarding(
     .from('organization_profiles')
     .upsert({
       user_id: userId,
-      organization_type: 'city_pound',
+      organization_type: 'dvmf',
       organization_name: formData.organization_name,
       description: formData.description,
       registration_number: formData.registration_number,
@@ -211,8 +211,8 @@ export async function submitCityPoundOnboarding(
     return { error: userError.message };
   }
 
-  revalidatePath('/shelter');
-  redirect('/shelter');
+  revalidatePath('/dvmf');
+  redirect('/dvmf');
 }
 
 // New adopter onboarding data type

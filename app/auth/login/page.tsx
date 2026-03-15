@@ -9,7 +9,7 @@ export default async function LoginPage() {
     if (!user.is_verified) {
       redirect(`/onboarding/${user.role}`);
     }
-    redirect(user.role === 'shelter' ? '/shelter' : '/dashboard');
+    redirect(user.role === 'shelter' ? '/shelter' : user.role === 'dvmf' ? '/dvmf' : '/dashboard');
   }
 
   return (

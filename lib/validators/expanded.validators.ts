@@ -39,7 +39,7 @@ export const volunteerStatusSchema = z.enum([
   'suspended'
 ]);
 
-export const organizationTypeSchema = z.enum(['ngo', 'city_pound']);
+export const organizationTypeSchema = z.enum(['ngo', 'dvmf']);
 
 export const contentTypeSchema = z.enum([
   'article',

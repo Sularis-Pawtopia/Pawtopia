@@ -23,8 +23,8 @@ export const signUpSchema = z.object({
     .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
   confirmPassword: z.string(),
-  role: z.enum(['regular_user', 'adopter', 'volunteer', 'ngo', 'shelter', 'city_pound']),
-  // Organization fields (required for ngo, shelter, city_pound)
+  role: z.enum(['regular_user', 'adopter', 'volunteer', 'ngo', 'shelter', 'dvmf']),
+  // Organization fields (required for ngo, shelter, dvmf)
   organization_name: z.string().optional(),
   registration_number: z.string().optional(),
   organization_address: z.string().optional(),
@@ -35,7 +35,7 @@ export const signUpSchema = z.object({
   path: ['confirmPassword'],
 }).refine((data) => {
   // Organization roles require org name
-  if (['ngo', 'shelter', 'city_pound'].includes(data.role)) {
+  if (['ngo', 'shelter', 'dvmf'].includes(data.role)) {
     return !!data.organization_name && data.organization_name.length >= 3;
   }
   return true;
@@ -43,8 +43,8 @@ export const signUpSchema = z.object({
   message: 'Organization name is required (min 3 characters)',
   path: ['organization_name'],
 }).refine((data) => {
-  // Shelter and city_pound require registration number
-  if (['shelter', 'city_pound'].includes(data.role)) {
+  // Shelter and dvmf require registration number
+  if (['shelter', 'dvmf'].includes(data.role)) {
     return !!data.registration_number && data.registration_number.length >= 5;
   }
   return true;

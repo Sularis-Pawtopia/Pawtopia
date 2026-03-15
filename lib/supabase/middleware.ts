@@ -38,7 +38,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes
-  const protectedPaths = ['/dashboard', '/shelter', '/adopter', '/profile'];
+  const protectedPaths = ['/dashboard', '/shelter', '/dvmf', '/adopter', '/profile'];
   const isProtectedPath = protectedPaths.some((path) =>
     request.nextUrl.pathname.startsWith(path)
   );
@@ -62,16 +62,25 @@ export async function updateSession(request: NextRequest) {
       // Redirect to onboarding if not verified
       if (!profile.is_verified) {
         const url = request.nextUrl.clone();
-        url.pathname =
-          profile.role === 'shelter'
-            ? '/onboarding/shelter'
-            : '/onboarding/adopter';
+        const onboardingRoutes: Record<string, string> = {
+          regular_user: '/onboarding/user',
+          volunteer: '/onboarding/volunteer',
+          adopter: '/onboarding/adopter',
+          ngo: '/onboarding/ngo',
+          shelter: '/onboarding/shelter',
+          dvmf: '/onboarding/dvmf',
+        };
+        url.pathname = onboardingRoutes[profile.role] || '/onboarding/user';
         return NextResponse.redirect(url);
       }
 
       // Redirect to appropriate dashboard
       const url = request.nextUrl.clone();
-      url.pathname = profile.role === 'shelter' ? '/shelter' : '/dashboard';
+      const dashboardRoutes: Record<string, string> = {
+        shelter: '/shelter',
+        dvmf: '/dvmf',
+      };
+      url.pathname = dashboardRoutes[profile.role] || '/dashboard';
       return NextResponse.redirect(url);
     }
   }

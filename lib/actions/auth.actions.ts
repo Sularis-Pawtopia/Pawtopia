@@ -48,8 +48,8 @@ export async function signUp(formData: SignUpFormData) {
   // This is handled by the on_user_created_sync_role trigger
 
   // 4. Create organization profile if applicable
-  if (['ngo', 'shelter', 'city_pound'].includes(role) && organization_name) {
-    const orgType = role === 'ngo' ? 'ngo' : role === 'shelter' ? 'shelter' : 'city_pound';
+  if (['ngo', 'shelter', 'dvmf'].includes(role) && organization_name) {
+    const orgType = role === 'ngo' ? 'ngo' : role === 'shelter' ? 'shelter' : 'dvmf';
     
     const { error: orgError } = await supabase.from('organization_profiles').insert({
       user_id: authData.user.id,
@@ -101,7 +101,7 @@ export async function login(formData: LoginFormData) {
         adopter: '/onboarding/adopter',
         ngo: '/onboarding/ngo',
         shelter: '/onboarding/shelter',
-        city_pound: '/onboarding/city-pound',
+        dvmf: '/onboarding/dvmf',
       };
       redirect(onboardingRoutes[userRole] || '/onboarding/user');
     }
@@ -114,7 +114,7 @@ export async function login(formData: LoginFormData) {
       adopter: '/dashboard',
       ngo: '/dashboard',
       shelter: '/shelter',
-      city_pound: '/shelter',
+      dvmf: '/dvmf',
     };
     redirect(dashboardRoutes[userRole] || '/dashboard');
   }
@@ -186,7 +186,7 @@ export async function getUserProfile(userId: string) {
   }
 
   // Fetch role-specific profile
-  if (user.role === 'shelter') {
+  if (user.role === 'shelter' || user.role === 'dvmf') {
     const { data: shelterProfile } = await supabase
       .from('shelter_profiles')
       .select('*')
