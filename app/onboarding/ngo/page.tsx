@@ -10,6 +10,21 @@ export default async function NgoOnboardingPage() {
     redirect('/auth/login');
   }
 
+  if (user.is_verified) {
+    redirect('/dashboard');
+  }
+
+  if (user.role !== 'ngo') {
+    const roleOnboardingRoute: Record<string, string> = {
+      regular_user: '/onboarding/user',
+      volunteer: '/onboarding/volunteer',
+      adopter: '/onboarding/adopter',
+      shelter: '/onboarding/shelter',
+      dvmf: '/onboarding/dvmf',
+    };
+    redirect(roleOnboardingRoute[user.role] || '/onboarding/user');
+  }
+
   // Get existing organization name if set during signup
   const supabase = await createClient();
   const { data: orgProfile } = await supabase

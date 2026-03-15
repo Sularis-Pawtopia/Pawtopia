@@ -9,6 +9,21 @@ export default async function ShelterOnboardingPage() {
     redirect('/auth/login');
   }
 
+  if (user.is_verified) {
+    redirect('/shelter');
+  }
+
+  if (user.role !== 'shelter') {
+    const roleOnboardingRoute: Record<string, string> = {
+      regular_user: '/onboarding/user',
+      volunteer: '/onboarding/volunteer',
+      adopter: '/onboarding/adopter',
+      ngo: '/onboarding/ngo',
+      dvmf: '/onboarding/dvmf',
+    };
+    redirect(roleOnboardingRoute[user.role] || '/onboarding/user');
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-orange-50 flex items-center justify-center py-12 px-4">
       <div className="max-w-3xl w-full">

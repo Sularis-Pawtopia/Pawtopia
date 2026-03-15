@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { login } from '@/lib/actions/auth.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { loginSchema, type LoginFormData } from '@/lib/validations';
 
 export function LoginForm() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,18 +25,19 @@ export function LoginForm() {
     setError(null);
     
     try {
-      const result = await login(data);
+      const result = await callApiAction<{ redirectTo?: string }>('auth', 'login', [data]);
       
       if (result?.error) {
         setError(result.error);
         setIsLoading(false);
+        return;
       }
-      // If successful, login action will redirect - no need to set loading false
+
+      const redirectTo = typeof result.redirectTo === 'string' ? result.redirectTo : '/dashboard';
+      router.push(redirectTo);
+      router.refresh();
+      return;
     } catch (err: unknown) {
-      // Check if this is a redirect error (NEXT_REDIRECT) - don't treat as error
-      if (err instanceof Error && err.message === 'NEXT_REDIRECT') {
-        return; // Let the redirect happen
-      }
       setError('An unexpected error occurred');
       console.error('Login error:', err);
       setIsLoading(false);

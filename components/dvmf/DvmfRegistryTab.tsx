@@ -1,11 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import {
-  createDvmfRegistryRecord,
-  deleteDvmfRegistryRecord,
-  updateDvmfRegistryRecord,
-} from '@/lib/actions/dvmf.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { createClient } from '@/lib/supabase/client';
 
 interface RegistryRecord {
@@ -182,7 +178,7 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
     if (!confirmed) return;
 
     startTransition(async () => {
-      const result = await deleteDvmfRegistryRecord(id);
+      const result = await callApiAction('dvmf', 'deleteDvmfRegistryRecord', [id]);
       if (!result.success) {
         setError(result.error || 'Failed to delete record');
         return;
@@ -225,8 +221,8 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
       };
 
       const result = editingId
-        ? await updateDvmfRegistryRecord({ id: editingId, ...payload })
-        : await createDvmfRegistryRecord(payload);
+        ? await callApiAction('dvmf', 'updateDvmfRegistryRecord', [{ id: editingId, ...payload }])
+        : await callApiAction('dvmf', 'createDvmfRegistryRecord', [payload]);
 
       if (!result.success || !result.data) {
         setError(result.error || (editingId ? 'Failed to update record' : 'Failed to create record'));

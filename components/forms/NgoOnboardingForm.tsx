@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { submitNgoOnboarding } from '@/lib/actions/onboarding.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 const ngoOnboardingSchema = z.object({
   organization_name: z.string().min(2, 'Organization name is required'),
@@ -72,7 +72,7 @@ export function NgoOnboardingForm({ userId, existingOrgName }: NgoOnboardingForm
   const onSubmit = async (data: NgoFormData) => {
     setIsSubmitting(true);
     try {
-      const result = await submitNgoOnboarding(userId, data);
+      const result = await callApiAction('onboarding', 'submitNgoOnboarding', [userId, data]);
       if (result?.error) {
         console.error(result.error);
       }

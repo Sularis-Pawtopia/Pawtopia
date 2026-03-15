@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createEvent } from '@/lib/actions/event.actions';
 import { createClient } from '@/lib/supabase/client';
+import { callApiAction } from '@/lib/api/action-client';
 
 export function EventCreateForm() {
   const router = useRouter();
@@ -70,17 +70,19 @@ export function EventCreateForm() {
         return;
       }
 
-      const result = await createEvent({
-        event_name: form.event_name,
-        event_type: form.event_type,
-        event_date: form.event_date,
-        end_date: form.end_date || undefined,
-        location: form.location,
-        description: form.description,
-        max_attendees: form.max_attendees ? Number(form.max_attendees) : undefined,
-        registration_required: form.registration_required,
-        media_urls: mediaUrls,
-      });
+      const result = await callApiAction('events', 'createEvent', [
+        {
+          event_name: form.event_name,
+          event_type: form.event_type,
+          event_date: form.event_date,
+          end_date: form.end_date || undefined,
+          location: form.location,
+          description: form.description,
+          max_attendees: form.max_attendees ? Number(form.max_attendees) : undefined,
+          registration_required: form.registration_required,
+          media_urls: mediaUrls,
+        },
+      ]);
 
       if (!result.success) {
         setError(result.error || 'Failed to create event');

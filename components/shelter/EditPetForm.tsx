@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { petSchema, type PetFormData } from '@/lib/validations';
-import { updatePet, deletePet } from '@/lib/actions/pet.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { Upload, X, Loader2, PawPrint, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -187,7 +187,7 @@ export function EditPetForm({ pet, shelterId }: EditPetFormProps) {
         const allMediaUrls = [...existingImages, ...newMediaUrls];
 
         // Update pet
-        const result = await updatePet(pet.id, data, allMediaUrls);
+        const result = await callApiAction('pets', 'updatePet', [pet.id, data, allMediaUrls]);
 
         if (result.error) {
           setError(result.error);
@@ -205,7 +205,7 @@ export function EditPetForm({ pet, shelterId }: EditPetFormProps) {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      const result = await deletePet(pet.id);
+      const result = await callApiAction('pets', 'deletePet', [pet.id]);
       if (result.error) {
         setError(result.error);
         setIsDeleting(false);

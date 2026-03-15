@@ -10,6 +10,21 @@ export default async function DvmfOnboardingPage() {
     redirect('/auth/login');
   }
 
+  if (user.is_verified) {
+    redirect('/dvmf');
+  }
+
+  if (user.role !== 'dvmf') {
+    const roleOnboardingRoute: Record<string, string> = {
+      regular_user: '/onboarding/user',
+      volunteer: '/onboarding/volunteer',
+      adopter: '/onboarding/adopter',
+      ngo: '/onboarding/ngo',
+      shelter: '/onboarding/shelter',
+    };
+    redirect(roleOnboardingRoute[user.role] || '/onboarding/user');
+  }
+
   const supabase = await createClient();
   const { data: orgProfile } = await supabase
     .from('organization_profiles')

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { submitAdopterOnboarding } from '@/lib/actions/onboarding.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 interface AdopterFormState {
   // Step 1 - Personal
@@ -239,7 +239,7 @@ export function AdopterOnboardingForm() {
 
   const uploadFiles = async (files: File[], bucket: string, folder: string): Promise<string[]> => {
     const supabase = (await import('@/lib/supabase/client')).createClient();
-    const urls: string[] = [];
+    const objectPaths: string[] = [];
     const errors: string[] = [];
     for (const file of files) {
       const ext = file.name.split('.').pop();
@@ -249,14 +249,13 @@ export function AdopterOnboardingForm() {
         console.error(`Upload failed for ${file.name}:`, error.message);
         errors.push(`${file.name}: ${error.message}`);
       } else {
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
-        urls.push(urlData.publicUrl);
+        objectPaths.push(path);
       }
     }
     if (errors.length > 0) {
       throw new Error(`File upload failed: ${errors.join(', ')}`);
     }
-    return urls;
+    return objectPaths;
   };
 
   const onSubmit = async () => {
@@ -284,7 +283,7 @@ export function AdopterOnboardingForm() {
           : Promise.resolve([]),
       ]);
 
-      const result = await submitAdopterOnboarding(user.id, {
+      const result = await callApiAction('onboarding', 'submitAdopterOnboarding', [user.id, {
         first_name: form.firstName,
         last_name: form.lastName,
         mi: form.mi,
@@ -322,7 +321,7 @@ export function AdopterOnboardingForm() {
         had_pets_before: form.hadPetsBefore === 'yes',
         home_photos: homePhotoUrls,
         valid_id_urls: validIdUrls,
-      });
+      }]);
 
       if (result?.error) {
         setError(result.error);

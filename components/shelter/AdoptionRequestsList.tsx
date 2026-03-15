@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { updateAdoptionRequestStatus, completeAdoption } from '@/lib/actions/adoption.actions';
+import { callApiAction } from '@/lib/api/action-client';
+import { toVerificationDocumentUrl } from '@/lib/storage/verification-documents';
 import { Check, X, Eye, Loader2, User, FileText, AlertTriangle, Clock } from 'lucide-react';
 
 interface AdoptionRequest {
@@ -111,7 +112,7 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
     setSuccessMessage(null);
     
     startTransition(async () => {
-      const result = await updateAdoptionRequestStatus(requestId, 'approved');
+      const result = await callApiAction('adoption', 'updateAdoptionRequestStatus', [requestId, 'approved']);
       if (result.error) {
         setError(result.error);
       } else {
@@ -134,12 +135,12 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
     setSuccessMessage(null);
     
     startTransition(async () => {
-      const result = await updateAdoptionRequestStatus(
+      const result = await callApiAction('adoption', 'updateAdoptionRequestStatus', [
         requestId, 
         'rejected',
         undefined,
         rejectionReason
-      );
+      ]);
       if (result.error) {
         setError(result.error);
       } else {
@@ -158,7 +159,7 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
     setSuccessMessage(null);
     
     startTransition(async () => {
-      const result = await completeAdoption(requestId, adoptionFee);
+      const result = await callApiAction('adoption', 'completeAdoption', [requestId, adoptionFee]);
       if (result.error) {
         setError(result.error);
       } else {
@@ -503,9 +504,9 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
                           <h4 className="font-semibold text-gray-900 mb-3">Home Photos</h4>
                           <div className="grid grid-cols-2 gap-2">
                             {profile.home_photos.map((url, i) => (
-                              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                              <a key={i} href={toVerificationDocumentUrl(url)} target="_blank" rel="noopener noreferrer" className="block">
                                 <img
-                                  src={url}
+                                  src={toVerificationDocumentUrl(url)}
                                   alt={`Home photo ${i + 1}`}
                                   className="w-full h-28 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition"
                                 />
@@ -519,9 +520,9 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
                           <h4 className="font-semibold text-gray-900 mb-3">Valid IDs</h4>
                           <div className="grid grid-cols-2 gap-2">
                             {profile.valid_id_urls.map((url, i) => (
-                              <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block">
+                              <a key={i} href={toVerificationDocumentUrl(url)} target="_blank" rel="noopener noreferrer" className="block">
                                 <img
-                                  src={url}
+                                  src={toVerificationDocumentUrl(url)}
                                   alt={`Valid ID ${i + 1}`}
                                   className="w-full h-28 object-cover rounded-lg border border-gray-200 hover:opacity-80 transition"
                                 />

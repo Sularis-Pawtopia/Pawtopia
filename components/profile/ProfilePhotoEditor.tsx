@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateUserPhotos } from '@/lib/actions/profile.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 interface ProfilePhotoEditorProps {
   profile: any;
@@ -90,7 +90,7 @@ export function ProfilePhotoEditor({ profile, isOpen, onClose }: ProfilePhotoEdi
         updates.cover_photo_url = await uploadFile(coverFile, `${profile.id}/cover`, 'profile-covers');
       }
 
-      const result = await updateUserPhotos(profile.id, updates);
+      const result = await callApiAction('profile', 'updateUserPhotos', [profile.id, updates]);
       if (result.error) {
         setError(result.error);
       } else {

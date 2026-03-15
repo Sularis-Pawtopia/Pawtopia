@@ -102,6 +102,28 @@ export async function submitNgoOnboarding(
 ) {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Not authenticated' };
+  }
+
+  if (user.id !== userId) {
+    return { error: 'Forbidden' };
+  }
+
+  const { data: authProfile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!authProfile || authProfile.role !== 'ngo') {
+    return { error: 'Forbidden' };
+  }
+
   // Update or create organization profile
   const { error: orgError } = await supabase
     .from('organization_profiles')
@@ -129,11 +151,11 @@ export async function submitNgoOnboarding(
     return { error: orgError.message };
   }
 
-  // Update user as verified (NGOs can post events immediately)
+  // Keep NGO accounts pending until they are reviewed.
   const { error: userError } = await supabase
     .from('users')
     .update({
-      is_verified: true,
+      is_verified: false,
       phone: formData.phone,
       address: formData.address,
       city: formData.city,
@@ -155,6 +177,28 @@ export async function submitCityPoundOnboarding(
   formData: CityPoundOnboardingData
 ) {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Not authenticated' };
+  }
+
+  if (user.id !== userId) {
+    return { error: 'Forbidden' };
+  }
+
+  const { data: authProfile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!authProfile || authProfile.role !== 'dvmf') {
+    return { error: 'Forbidden' };
+  }
 
   // Update or create organization profile
   const { error: orgError } = await supabase
@@ -194,11 +238,11 @@ export async function submitCityPoundOnboarding(
     console.error('Shelter profile error:', shelterError);
   }
 
-  // Update user as verified
+  // Keep DVMF accounts pending until they are reviewed.
   const { error: userError } = await supabase
     .from('users')
     .update({
-      is_verified: true,
+      is_verified: false,
       phone: formData.phone,
       address: formData.address,
       city: formData.city,

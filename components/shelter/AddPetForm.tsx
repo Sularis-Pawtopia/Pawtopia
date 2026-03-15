@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { petSchema, type PetFormData } from '@/lib/validations';
-import { createPet } from '@/lib/actions/pet.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { Upload, X, Loader2, PawPrint } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
@@ -163,7 +163,7 @@ export function AddPetForm({ shelterId }: AddPetFormProps) {
         const mediaUrls = await uploadImages();
 
         // Create pet
-        const result = await createPet(shelterId, data, mediaUrls);
+        const result = await callApiAction('pets', 'createPet', [data, mediaUrls]);
 
         if (result.error) {
           setError(result.error);

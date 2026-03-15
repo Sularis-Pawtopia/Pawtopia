@@ -5,8 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Heart, MessageCircle, Bookmark, MapPin, Calendar, PawPrint, MoreHorizontal, Pencil, Trash2, Archive, ArchiveX } from 'lucide-react';
 import { PostWithDetails, CommentWithUser } from '@/types';
-import { likePost, savePost, createComment, deletePost, updatePost } from '@/lib/actions/post.actions';
-import { getAdoptionRequestForPet } from '@/lib/actions/adoption.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { createClient } from '@/lib/supabase/client';
 import { ImageCarousel } from './ImageCarousel';
 import { PetDetailModal } from '../pets/PetDetailModal';
@@ -87,7 +86,7 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
   const handleDeletePost = useCallback(async (postId: string) => {
     setOpenKebab(null);
     if (!window.confirm('Delete this post? This cannot be undone.')) return;
-    const result = await deletePost(postId);
+    const result = await callApiAction('posts', 'deletePost', [postId]);
     if (result.error) {
       alert(result.error);
       return;
@@ -106,7 +105,7 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
     if (!editingPost) return;
     setEditPending(true);
     setEditError('');
-    const result = await updatePost(editingPost.id, { description: editDescription });
+    const result = await callApiAction('posts', 'updatePost', [editingPost.id, { description: editDescription }]);
     setEditPending(false);
     if (result.error) {
       setEditError(result.error);
@@ -273,19 +272,21 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
     ));
 
     try {
-      const result = await likePost(postId);
+      const result = await callApiAction<{ liked: boolean; count: number }>('posts', 'likePost', [postId]);
       
       // Clear pending status
       pendingLikes.current.delete(postId);
       
       if (result.success) {
+        const liked = typeof result.liked === 'boolean' ? result.liked : !wasLiked;
+        const count = typeof result.count === 'number' ? result.count : originalCount;
         // Update with the actual server count - this is authoritative
         setPosts(prevPosts => prevPosts.map(post => 
           post.id === postId 
             ? { 
                 ...post, 
-                is_liked_by_user: result.liked,
-                like_count: result.count
+                is_liked_by_user: liked,
+                like_count: count
               }
             : post
         ));
@@ -319,7 +320,7 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
   }, [posts]);
 
   const handleSave = useCallback(async (postId: string) => {
-    const result = await savePost(postId);
+    const result = await callApiAction<{ saved: boolean }>('posts', 'savePost', [postId]);
     if (result.success) {
       setPosts(prevPosts => prevPosts.map(post => 
         post.id === postId 
@@ -332,15 +333,16 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
   const handleComment = useCallback(async (postId: string, content: string) => {
     if (!content.trim()) return;
 
-    const result = await createComment(postId, content.trim());
-    if (result.success && result.data) {
+    const result = await callApiAction<CommentWithUser>('posts', 'createComment', [postId, content.trim()]);
+    const createdComment = result.data as CommentWithUser | undefined;
+    if (result.success && createdComment) {
       setCommentInputs(prev => ({ ...prev, [postId]: '' }));
       // Optimistically add comment (realtime will dedupe)
       setPosts(prevPosts => prevPosts.map(post => 
         post.id === postId 
           ? { 
               ...post, 
-              comments: [...(post.comments || []), result.data]
+              comments: [...(post.comments || []), createdComment]
             }
           : post
       ));
@@ -368,7 +370,7 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
     const petPosts = posts.filter(p => p.pet && p.pet.status === 'available');
     petPosts.forEach(async (post) => {
       if (!post.pet || existingRequests[post.pet.id] !== undefined) return;
-      const result = await getAdoptionRequestForPet(post.pet.id, currentUserId);
+      const result = await callApiAction<{ id: string; status: string; created_at?: string }>('adoption', 'getAdoptionRequestForPet', [post.pet.id, currentUserId]);
       if (result.data) {
         setExistingRequests(prev => ({ ...prev, [post.pet!.id]: result.data! }));
       } else {

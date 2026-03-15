@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { submitRegularUserOnboarding } from '@/lib/actions/onboarding.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 const regularUserSchema = z.object({
   phone: z.string().min(11, 'Please enter a valid 11-digit phone number').max(11, 'Phone number must be exactly 11 digits').optional().or(z.literal('')),
@@ -82,14 +82,14 @@ export function RegularUserOnboardingForm({ userId }: RegularUserOnboardingFormP
     setError('');
 
     try {
-      const result = await submitRegularUserOnboarding(userId, {
+      const result = await callApiAction('onboarding', 'submitRegularUserOnboarding', [userId, {
         phone: data.phone || null,
         city: data.city,
         state: data.state,
         bio: data.bio,
         interests: data.interests,
         notification_preferences: data.notificationPreferences,
-      });
+      }]);
 
       if (result?.error) {
         setError(result.error);

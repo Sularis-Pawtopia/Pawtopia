@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { clientLogout } from '@/lib/actions/auth.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { useSidebar } from './SidebarContext';
 import {
   Home, Compass, Heart, Calendar, MapPin, BookOpen, ShoppingBag,
@@ -68,7 +68,7 @@ export function Navbar({ user }: NavbarProps) {
   const handleSignOut = async () => {
     setIsLoggingOut(true);
     try {
-      await clientLogout();
+      await callApiAction('auth', 'clientLogout', []);
       window.location.href = '/';
     } catch {
       setIsLoggingOut(false);

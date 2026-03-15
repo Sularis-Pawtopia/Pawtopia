@@ -6,9 +6,7 @@ import { ShelterProfileInfo } from './ShelterProfileInfo';
 import { AdopterEditForm } from './AdopterEditForm';
 import { ShelterEditForm } from './ShelterEditForm';
 import AdoptPetModal from './AdoptPetModal';
-import { getShelterPetsByStatus, getShelterEvents } from '@/lib/actions/profile.actions';
-import { getAdopterAllPets } from '@/lib/actions/pet.actions';
-import { getUserAdoptionRequests } from '@/lib/actions/adoption.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 interface ProfileContentProps {
   profile: any;
@@ -56,7 +54,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
 
     if (activeTab === 'adoptables' && adoptablePets.length === 0) {
       setLoadingPets(true);
-      getShelterPetsByStatus(profile.id, 'available', {
+      callApiAction<any[]>('profile', 'getShelterPetsByStatus', [profile.id, 'available', {
         gender: genderFilter,
         size: sizeFilter,
         minAgeYears: minAge,
@@ -64,7 +62,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
         is_spayed_neutered: isSpayed,
         is_vaccinated: isVaccinated,
         search,
-      }).then((res) => {
+      }]).then((res) => {
         if (res.success) setAdoptablePets(res.data || []);
         setLoadingPets(false);
       });
@@ -72,7 +70,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
 
     if (activeTab === 'adopted' && adoptedPets.length === 0) {
       setLoadingAdopted(true);
-      getShelterPetsByStatus(profile.id, 'adopted', { search }).then((res) => {
+      callApiAction<any[]>('profile', 'getShelterPetsByStatus', [profile.id, 'adopted', { search }]).then((res) => {
         if (res.success) setAdoptedPets(res.data || []);
         setLoadingAdopted(false);
       });
@@ -80,7 +78,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
 
     if (activeTab === 'events' && events.length === 0) {
       setLoadingEvents(true);
-      getShelterEvents(profile.id).then((res) => {
+      callApiAction<any[]>('profile', 'getShelterEvents', [profile.id]).then((res) => {
         if (res.success) setEvents(res.data || []);
         setLoadingEvents(false);
       });
@@ -92,7 +90,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
     if (!isShelter) return;
     if (activeTab !== 'adoptables') return;
     setLoadingPets(true);
-    getShelterPetsByStatus(profile.id, 'available', {
+    callApiAction<any[]>('profile', 'getShelterPetsByStatus', [profile.id, 'available', {
       gender: genderFilter,
       size: sizeFilter,
       minAgeYears: minAge,
@@ -100,7 +98,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
       is_spayed_neutered: isSpayed,
       is_vaccinated: isVaccinated,
       search,
-    }).then((res) => {
+    }]).then((res) => {
       if (res.success) setAdoptablePets(res.data || []);
       setLoadingPets(false);
     });
@@ -113,7 +111,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
 
     if (activeTab === 'my-pets' && adopterPets.length === 0) {
       setLoadingAdopterPets(true);
-      getAdopterAllPets(profile.id).then((res) => {
+      callApiAction<any[]>('pets', 'getAdopterAllPets', [profile.id]).then((res) => {
         setAdopterPets(res.data || []);
         setLoadingAdopterPets(false);
       });
@@ -121,7 +119,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
 
     if (activeTab === 'pending' && pendingRequests.length === 0) {
       setLoadingPending(true);
-      getUserAdoptionRequests(profile.id).then((res) => {
+      callApiAction<any[]>('adoption', 'getUserAdoptionRequests', [profile.id]).then((res) => {
         setPendingRequests(res.data || []);
         setLoadingPending(false);
       });
@@ -368,7 +366,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
                 setShowAddPet(false);
                 setAdopterPets([]);
                 setLoadingAdopterPets(true);
-                getAdopterAllPets(profile.id).then((res) => {
+                callApiAction<any[]>('pets', 'getAdopterAllPets', [profile.id]).then((res) => {
                   setAdopterPets(res.data || []);
                   setLoadingAdopterPets(false);
                 });
@@ -453,7 +451,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
                 // Refresh the pending requests list
                 setPendingRequests([]);
                 setLoadingPending(true);
-                getUserAdoptionRequests(profile.id).then((res) => {
+                callApiAction<any[]>('adoption', 'getUserAdoptionRequests', [profile.id]).then((res) => {
                   setPendingRequests(res.data || []);
                   setLoadingPending(false);
                 });

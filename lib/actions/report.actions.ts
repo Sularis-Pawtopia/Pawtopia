@@ -12,6 +12,30 @@ import type {
   PaginatedResponse 
 } from '@/types/expanded.types';
 
+async function requireReportManager() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Authentication required' as const };
+  }
+
+  const { data: profile, error } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (error || !profile || !['admin', 'dvmf'].includes(profile.role)) {
+    return { error: 'Forbidden' as const };
+  }
+
+  return { supabase, user };
+}
+
 // =============================================
 // CREATE REPORT (Authenticated or Anonymous)
 // =============================================
@@ -75,13 +99,11 @@ export async function getReports(
   pageSize: number = 20
 ): Promise<ActionResponse<PaginatedResponse<Report>>> {
   try {
-    const supabase = await createClient();
-    
-    // Verify user has permission (RLS handles this, but double-check)
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { success: false, error: 'Authentication required' };
+    const auth = await requireReportManager();
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
     }
+    const { supabase } = auth;
     
     let query = supabase
       .from('reports')
@@ -181,12 +203,11 @@ export async function updateReportStatus(
   notes?: string
 ): Promise<ActionResponse<Report>> {
   try {
-    const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { success: false, error: 'Authentication required' };
+    const auth = await requireReportManager();
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
     }
+    const { supabase, user } = auth;
     
     // Get current report to track status change
     const { data: currentReport } = await supabase
@@ -248,12 +269,11 @@ export async function updateReport(
   update: ReportUpdate
 ): Promise<ActionResponse<Report>> {
   try {
-    const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { success: false, error: 'Authentication required' };
+    const auth = await requireReportManager();
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
     }
+    const { supabase, user } = auth;
     
     // Build update data
     const updateData: ReportUpdate = { ...update };
@@ -299,7 +319,11 @@ export async function assignReport(
   assigneeId: string
 ): Promise<ActionResponse<Report>> {
   try {
-    const supabase = await createClient();
+    const auth = await requireReportManager();
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
+    }
+    const { supabase } = auth;
     
     const { data, error } = await supabase
       .from('reports')

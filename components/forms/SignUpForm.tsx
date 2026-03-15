@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signUp } from '@/lib/actions/auth.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { signUpSchema, type SignUpFormData } from '@/lib/validations';
 
 // Role definitions with badges, descriptions, and requirements
@@ -166,7 +166,7 @@ export function SignUpForm() {
     setError(null);
     
     try {
-      const result = await signUp(data);
+      const result = await callApiAction('auth', 'signUp', [data]);
       
       if (result.error) {
         setError(result.error);

@@ -103,7 +103,7 @@ export async function login(formData: LoginFormData) {
         shelter: '/onboarding/shelter',
         dvmf: '/onboarding/dvmf',
       };
-      redirect(onboardingRoutes[userRole] || '/onboarding/user');
+      return { success: true, redirectTo: onboardingRoutes[userRole] || '/onboarding/user' };
     }
 
     // Redirect to appropriate dashboard
@@ -116,10 +116,10 @@ export async function login(formData: LoginFormData) {
       shelter: '/shelter',
       dvmf: '/dvmf',
     };
-    redirect(dashboardRoutes[userRole] || '/dashboard');
+    return { success: true, redirectTo: dashboardRoutes[userRole] || '/dashboard' };
   }
 
-  return { success: true };
+  return { success: true, redirectTo: '/dashboard' };
 }
 
 export async function logout() {
@@ -216,6 +216,18 @@ export async function updateUserProfile(userId: string, data: Partial<{
   avatar_url: string;
 }>) {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Not authenticated' };
+  }
+
+  if (user.id !== userId) {
+    return { error: 'Forbidden' };
+  }
   
   const { error } = await supabase
     .from('users')

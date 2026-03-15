@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { submitVolunteerOnboarding } from '@/lib/actions/onboarding.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 const volunteerOnboardingSchema = z.object({
   application_reason: z.string().min(50, 'Please tell us more about why you want to volunteer (min 50 characters)'),
@@ -133,7 +133,7 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
   const onSubmit = async (data: VolunteerFormData) => {
     setIsSubmitting(true);
     try {
-      const result = await submitVolunteerOnboarding(userId, data);
+      const result = await callApiAction('onboarding', 'submitVolunteerOnboarding', [userId, data]);
       if (result?.error) {
         console.error(result.error);
       }

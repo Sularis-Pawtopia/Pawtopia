@@ -1,5 +1,7 @@
 'use client';
 
+import { toVerificationDocumentUrl } from '@/lib/storage/verification-documents';
+
 interface ShelterProfileInfoProps {
   profile: any;
 }
@@ -127,7 +129,7 @@ export function ShelterProfileInfo({ profile }: ShelterProfileInfoProps) {
                 {(Array.isArray(p.verification_documents) ? p.verification_documents : []).map((url: string, i: number) => (
                   <div key={i} className="aspect-square rounded-lg overflow-hidden border border-gray-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Document ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={toVerificationDocumentUrl(url)} alt={`Document ${i + 1}`} className="w-full h-full object-cover" />
                   </div>
                 ))}
               </div>
@@ -140,7 +142,7 @@ export function ShelterProfileInfo({ profile }: ShelterProfileInfoProps) {
                 {(Array.isArray(p.business_permit_urls) ? p.business_permit_urls : []).map((url: string, i: number) => (
                   <div key={i} className="aspect-square rounded-lg overflow-hidden border border-gray-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Permit ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={toVerificationDocumentUrl(url)} alt={`Permit ${i + 1}`} className="w-full h-full object-cover" />
                   </div>
                 ))}
               </div>

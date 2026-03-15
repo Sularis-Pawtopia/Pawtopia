@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { adoptionApplicationSchema, type AdoptionApplicationFormData } from '@/lib/validations';
-import { createAdoptionRequest } from '@/lib/actions/adoption.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { Heart, Loader2, X } from 'lucide-react';
 
 interface AdoptionApplicationButtonProps {
@@ -33,7 +33,7 @@ export function AdoptionApplicationButton({ petId, petName }: AdoptionApplicatio
     setError(null);
 
     startTransition(async () => {
-      const result = await createAdoptionRequest(petId, data);
+      const result = await callApiAction('adoption', 'createAdoptionRequest', [petId, data]);
 
       if (result.error) {
         setError(result.error);

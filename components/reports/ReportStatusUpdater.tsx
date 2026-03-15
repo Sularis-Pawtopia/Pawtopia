@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateReportStatus } from '@/lib/actions/report.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import type { ReportStatus } from '@/types/expanded.types';
 
 interface ReportStatusUpdaterProps {
@@ -43,7 +43,7 @@ export function ReportStatusUpdater({
     if (!selectedStatus) return;
 
     startTransition(async () => {
-      const result = await updateReportStatus(reportId, selectedStatus, notes || undefined);
+      const result = await callApiAction('reports', 'updateReportStatus', [reportId, selectedStatus, notes || undefined]);
       
       if (result.success) {
         setIsOpen(false);
