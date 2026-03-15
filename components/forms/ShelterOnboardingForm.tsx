@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitShelterOnboarding } from '@/lib/actions/onboarding.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 type PolicyOption = 'yes' | 'no' | 'sometimes';
 
@@ -189,7 +189,7 @@ export function ShelterOnboardingForm() {
 
   const uploadFiles = async (files: File[], bucket: string, folder: string): Promise<string[]> => {
     const supabase = (await import('@/lib/supabase/client')).createClient();
-    const urls: string[] = [];
+    const objectPaths: string[] = [];
     const errors: string[] = [];
     for (const file of files) {
       const ext = file.name.split('.').pop();
@@ -199,14 +199,13 @@ export function ShelterOnboardingForm() {
         console.error(`Upload failed for ${file.name}:`, error.message);
         errors.push(`${file.name}: ${error.message}`);
       } else {
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(path);
-        urls.push(urlData.publicUrl);
+        objectPaths.push(path);
       }
     }
     if (errors.length > 0) {
       throw new Error(`File upload failed: ${errors.join(', ')}`);
     }
-    return urls;
+    return objectPaths;
   };
 
   const onSubmit = async () => {
@@ -233,7 +232,7 @@ export function ShelterOnboardingForm() {
       console.log('Uploaded welfare cert URLs:', welfareCertUrls);
       console.log('Uploaded business permit URLs:', businessPermitUrls);
 
-      const result = await submitShelterOnboarding(
+      const result = await callApiAction('onboarding', 'submitShelterOnboarding', [
         user.id,
         {
           shelter_name: form.shelterName,
@@ -264,7 +263,7 @@ export function ShelterOnboardingForm() {
           verification_documents: welfareCertUrls,
           business_permit_urls: businessPermitUrls,
         }
-      );
+      ]);
 
       if (result?.error) {
         setError(result.error);

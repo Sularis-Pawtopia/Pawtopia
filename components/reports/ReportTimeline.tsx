@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getReportStatusHistory } from '@/lib/actions/report.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { formatDistanceToNow } from 'date-fns';
 import type { ReportStatusHistory } from '@/types/expanded.types';
 
@@ -25,7 +25,7 @@ export function ReportTimeline({ reportId }: ReportTimelineProps) {
 
   useEffect(() => {
     async function fetchHistory() {
-      const result = await getReportStatusHistory(reportId);
+      const result = await callApiAction<ReportStatusHistory[]>('reports', 'getReportHistory', [reportId]);
       if (result.data) {
         setHistory(result.data);
       }

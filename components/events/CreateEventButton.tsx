@@ -9,7 +9,7 @@ export function CreateEventButton() {
       className="bg-white text-primary-600 px-6 py-3 rounded-lg hover:bg-gray-100 transition-colors font-semibold flex items-center gap-2 shadow-lg"
     >
       <span>➕</span>
-      <span>Create Event</span>
+      <span>Create Event / Drive</span>
     </Link>
   );
 }

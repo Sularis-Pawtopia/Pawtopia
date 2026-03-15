@@ -48,6 +48,13 @@ export function Sidebar({ user }: SidebarProps) {
         ...baseNavigation,
       ];
     }
+    if (user?.role === 'dvmf') {
+      return [
+        { name: 'DVMF Dashboard', href: '/dvmf', icon: LayoutDashboard },
+        { name: 'Feed', href: '/dashboard', icon: Newspaper },
+        ...baseNavigation,
+      ];
+    }
     return [
       { name: 'Feed', href: '/dashboard', icon: Home },
       ...baseNavigation,

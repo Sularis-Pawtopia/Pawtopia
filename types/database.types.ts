@@ -8,7 +8,7 @@ export type Json =
   | Json[]
 
 // User role type - all available roles
-export type UserRole = 'admin' | 'regular_user' | 'adopter' | 'volunteer' | 'shelter' | 'ngo' | 'city_pound';
+export type UserRole = 'admin' | 'regular_user' | 'adopter' | 'volunteer' | 'shelter' | 'ngo' | 'dvmf';
 
 export interface Database {
   public: {

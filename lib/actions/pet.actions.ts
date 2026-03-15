@@ -6,28 +6,39 @@ import type { PetFormData } from '@/lib/validations';
 import type { PetStatus } from '@/types';
 
 export async function createPet(
-  shelterId: string,
   formData: PetFormData,
   mediaUrls: string[]
 ) {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Not authenticated' };
+  }
+
   // 0. Verify shelter is approved before allowing pet creation
   const { data: shelterUser } = await supabase
     .from('users')
-    .select('is_verified')
-    .eq('id', shelterId)
+    .select('id, role, is_verified')
+    .eq('id', user.id)
     .single();
 
+  if (!shelterUser || !['shelter', 'dvmf'].includes(shelterUser.role)) {
+    return { error: 'Only verified organizers can create pets.' };
+  }
+
   if (!shelterUser?.is_verified) {
-    return { error: 'Your shelter account is pending verification. You cannot post pets until an admin approves your account.' };
+    return { error: 'Your organization account is pending verification. You cannot post pets until an admin approves your account.' };
   }
 
   // 1. Create post
   const { data: post, error: postError } = await supabase
     .from('posts')
     .insert({
-      user_id: shelterId,
+      user_id: user.id,
       post_type: 'adoptable',
       title: `Meet ${formData.name}!`,
       description: formData.description,
@@ -46,7 +57,7 @@ export async function createPet(
     .from('pets')
     .insert({
       post_id: post.id,
-      shelter_id: shelterId,
+      shelter_id: user.id,
       name: formData.name,
       species: formData.species,
       breed: formData.breed,

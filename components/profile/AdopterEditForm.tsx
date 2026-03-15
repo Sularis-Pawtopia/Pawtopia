@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateAdopterProfileByUserId } from '@/lib/actions/profile.actions';
+import { callApiAction } from '@/lib/api/action-client';
+import { toVerificationDocumentUrl } from '@/lib/storage/verification-documents';
 
 const PROMPTED_OPTIONS = ['Friends', 'Social Media', 'Website', 'Others'] as const;
 const LIVE_WITH_OPTIONS = [
@@ -106,16 +107,15 @@ export function AdopterEditForm({ profile, onCancel, onSaved }: AdopterEditFormP
   const uploadFiles = async (files: File[], folder: string): Promise<string[]> => {
     if (files.length === 0) return [];
     const supabase = (await import('@/lib/supabase/client')).createClient();
-    const urls: string[] = [];
+    const objectPaths: string[] = [];
     for (const file of files) {
       const ext = file.name.split('.').pop();
       const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error } = await supabase.storage.from('verification-documents').upload(path, file);
       if (error) throw new Error(`Upload failed: ${error.message}`);
-      const { data: urlData } = supabase.storage.from('verification-documents').getPublicUrl(path);
-      urls.push(urlData.publicUrl);
+      objectPaths.push(path);
     }
-    return urls;
+    return objectPaths;
   };
 
   const handleSave = async () => {
@@ -182,7 +182,7 @@ export function AdopterEditForm({ profile, onCancel, onSaved }: AdopterEditFormP
         valid_id_urls: finalValidIds,
       };
 
-      const result = await updateAdopterProfileByUserId(profile.id, data);
+      const result = await callApiAction('profile', 'updateAdopterProfileByUserId', [profile.id, data]);
       if (result.error) {
         setError(result.error);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -488,7 +488,7 @@ export function AdopterEditForm({ profile, onCancel, onSaved }: AdopterEditFormP
               <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
                 {preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview} alt={`Home ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={toVerificationDocumentUrl(preview)} alt={`Home ${i + 1}`} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xs text-gray-400">Photo</div>
                 )}
@@ -517,7 +517,7 @@ export function AdopterEditForm({ profile, onCancel, onSaved }: AdopterEditFormP
               <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
                 {preview ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview} alt={`ID ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={toVerificationDocumentUrl(preview)} alt={`ID ${i + 1}`} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xs text-gray-400">ID</div>
                 )}

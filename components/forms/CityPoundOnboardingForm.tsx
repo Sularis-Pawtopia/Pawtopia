@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { submitCityPoundOnboarding } from '@/lib/actions/onboarding.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 const cityPoundOnboardingSchema = z.object({
   organization_name: z.string().min(2, 'Organization name is required'),
@@ -85,7 +85,7 @@ export function CityPoundOnboardingForm({
   const onSubmit = async (data: CityPoundFormData) => {
     setIsSubmitting(true);
     try {
-      const result = await submitCityPoundOnboarding(userId, data);
+      const result = await callApiAction('onboarding', 'submitCityPoundOnboarding', [userId, data]);
       if (result?.error) {
         console.error(result.error);
       }

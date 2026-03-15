@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { X, Loader2, Send } from 'lucide-react';
-import { createAdoptionRequest } from '@/lib/actions/adoption.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 interface AdoptionApplicationModalProps {
   petId: string;
@@ -103,7 +103,7 @@ export function AdoptionApplicationModal({ petId, petName, shelterName, onClose,
   const handleSubmit = () => {
     setError(null);
     startTransition(async () => {
-      const result = await createAdoptionRequest(petId, formData);
+      const result = await callApiAction('adoption', 'createAdoptionRequest', [petId, formData]);
       if (result.error) {
         setError(result.error);
         setStep('form');

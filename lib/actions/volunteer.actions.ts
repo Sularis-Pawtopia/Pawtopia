@@ -13,6 +13,44 @@ import type {
   VolunteerFilters
 } from '@/types/expanded.types';
 
+async function requireEventOrganizerAccess(applicationId: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Authentication required' as const };
+  }
+
+  const { data: application, error: applicationError } = await supabase
+    .from('event_volunteers')
+    .select('event_id')
+    .eq('id', applicationId)
+    .single();
+
+  if (applicationError || !application) {
+    return { error: 'Volunteer application not found' as const };
+  }
+
+  const { data: event, error: eventError } = await supabase
+    .from('events')
+    .select('id, shelter_id, organizer_id')
+    .eq('id', application.event_id)
+    .single();
+
+  if (eventError || !event) {
+    return { error: 'Event not found' as const };
+  }
+
+  if (event.shelter_id !== user.id && event.organizer_id !== user.id) {
+    return { error: 'Forbidden' as const };
+  }
+
+  return { supabase };
+}
+
 // =============================================
 // APPLY AS VOLUNTEER
 // =============================================
@@ -287,12 +325,15 @@ export async function reviewEventVolunteer(
   update: EventVolunteerUpdate
 ): Promise<ActionResponse<EventVolunteer>> {
   try {
-    const supabase = await createClient();
-    
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return { success: false, error: 'Authentication required' };
+    const auth = await requireEventOrganizerAccess(applicationId);
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
     }
+    const { supabase } = auth;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     
     const updateData: EventVolunteerUpdate = {
       ...update,
@@ -336,7 +377,11 @@ export async function checkInVolunteer(
   applicationId: string
 ): Promise<ActionResponse<EventVolunteer>> {
   try {
-    const supabase = await createClient();
+    const auth = await requireEventOrganizerAccess(applicationId);
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
+    }
+    const { supabase } = auth;
     
     const { data, error } = await supabase
       .from('event_volunteers')
@@ -365,7 +410,15 @@ export async function checkOutVolunteer(
   hoursLogged: number
 ): Promise<ActionResponse<EventVolunteer>> {
   try {
-    const supabase = await createClient();
+    if (!Number.isFinite(hoursLogged) || hoursLogged < 0 || hoursLogged > 24) {
+      return { success: false, error: 'Hours logged must be between 0 and 24.' };
+    }
+
+    const auth = await requireEventOrganizerAccess(applicationId);
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
+    }
+    const { supabase } = auth;
     
     const { data, error } = await supabase
       .from('event_volunteers')

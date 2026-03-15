@@ -102,6 +102,28 @@ export async function submitNgoOnboarding(
 ) {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Not authenticated' };
+  }
+
+  if (user.id !== userId) {
+    return { error: 'Forbidden' };
+  }
+
+  const { data: authProfile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!authProfile || authProfile.role !== 'ngo') {
+    return { error: 'Forbidden' };
+  }
+
   // Update or create organization profile
   const { error: orgError } = await supabase
     .from('organization_profiles')
@@ -129,11 +151,11 @@ export async function submitNgoOnboarding(
     return { error: orgError.message };
   }
 
-  // Update user as verified (NGOs can post events immediately)
+  // Keep NGO accounts pending until they are reviewed.
   const { error: userError } = await supabase
     .from('users')
     .update({
-      is_verified: true,
+      is_verified: false,
       phone: formData.phone,
       address: formData.address,
       city: formData.city,
@@ -156,12 +178,34 @@ export async function submitCityPoundOnboarding(
 ) {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Not authenticated' };
+  }
+
+  if (user.id !== userId) {
+    return { error: 'Forbidden' };
+  }
+
+  const { data: authProfile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!authProfile || authProfile.role !== 'dvmf') {
+    return { error: 'Forbidden' };
+  }
+
   // Update or create organization profile
   const { error: orgError } = await supabase
     .from('organization_profiles')
     .upsert({
       user_id: userId,
-      organization_type: 'city_pound',
+      organization_type: 'dvmf',
       organization_name: formData.organization_name,
       description: formData.description,
       registration_number: formData.registration_number,
@@ -194,11 +238,11 @@ export async function submitCityPoundOnboarding(
     console.error('Shelter profile error:', shelterError);
   }
 
-  // Update user as verified
+  // Keep DVMF accounts pending until they are reviewed.
   const { error: userError } = await supabase
     .from('users')
     .update({
-      is_verified: true,
+      is_verified: false,
       phone: formData.phone,
       address: formData.address,
       city: formData.city,
@@ -211,8 +255,8 @@ export async function submitCityPoundOnboarding(
     return { error: userError.message };
   }
 
-  revalidatePath('/shelter');
-  redirect('/shelter');
+  revalidatePath('/dvmf');
+  redirect('/dvmf');
 }
 
 // New adopter onboarding data type

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
-import { clientLogout } from '@/lib/actions/auth.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { useSidebar } from './SidebarContext';
 import {
   Home, Compass, Heart, Calendar, MapPin, BookOpen, ShoppingBag,
@@ -37,9 +37,13 @@ export function Navbar({ user }: NavbarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const navTabs = user.role === 'shelter'
-    ? [{ href: '/shelter', label: 'Shelter', icon: LayoutDashboard }, ...mainNavTabs]
-    : mainNavTabs;
+  const dashboardTab = user.role === 'shelter'
+    ? { href: '/shelter', label: 'Shelter', icon: LayoutDashboard }
+    : user.role === 'dvmf'
+      ? { href: '/dvmf', label: 'DVMF', icon: LayoutDashboard }
+      : null;
+
+  const navTabs = dashboardTab ? [dashboardTab, ...mainNavTabs] : mainNavTabs;
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + '/');
@@ -64,7 +68,7 @@ export function Navbar({ user }: NavbarProps) {
   const handleSignOut = async () => {
     setIsLoggingOut(true);
     try {
-      await clientLogout();
+      await callApiAction('auth', 'clientLogout', []);
       window.location.href = '/';
     } catch {
       setIsLoggingOut(false);
@@ -84,7 +88,7 @@ export function Navbar({ user }: NavbarProps) {
           {/* Left ─ Logo */}
           <div className="flex items-center gap-2 min-w-[56px] md:min-w-[200px]">
             <Link
-              href={user.role === 'shelter' ? '/shelter' : '/dashboard'}
+              href={user.role === 'shelter' ? '/shelter' : user.role === 'dvmf' ? '/dvmf' : '/dashboard'}
               className="flex items-center gap-2"
             >
               <PawPrint className="w-8 h-8 text-primary-500" />

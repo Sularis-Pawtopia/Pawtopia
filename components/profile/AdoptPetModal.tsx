@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { createAdoptionRequest, getMyAdoptionRequestForPet, cancelAdoptionRequest } from '@/lib/actions/adoption.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 interface AdoptPetModalProps {
   pet: any;
@@ -44,7 +44,7 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
       return;
     }
     setCheckingExisting(true);
-    getMyAdoptionRequestForPet(pet.id).then((res) => {
+    callApiAction('adoption', 'getMyAdoptionRequestForPet', [pet.id]).then((res) => {
       if (res.data) {
         setExistingReq(res.data);
       }
@@ -58,7 +58,7 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
     setIsLoading(true);
     setError('');
     try {
-      const res: any = await createAdoptionRequest(pet.id);
+      const res: any = await callApiAction('adoption', 'createAdoptionRequest', [pet.id]);
       if (res.error) {
         setError(res.error);
       } else {
@@ -80,7 +80,7 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
     setIsCancelling(true);
     setError('');
     try {
-      const res: any = await cancelAdoptionRequest(existingReq.id, cancelReason || undefined);
+      const res: any = await callApiAction('adoption', 'cancelAdoptionRequest', [existingReq.id, cancelReason || undefined]);
       if (res.error) {
         setError(res.error);
       } else {

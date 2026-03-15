@@ -48,7 +48,7 @@ Pawtopia is a full-stack pet adoption platform that connects animal shelters wit
 - **Database**: PostgreSQL (Supabase)
 - **Auth**: Supabase Auth
 - **Storage**: Supabase Storage
-- **API**: Next.js Server Actions
+- **API**: Next.js Route Handlers (`app/api/*`) + Server Services
 - **Validation**: Zod schemas
 
 ### **DevOps**
@@ -138,6 +138,45 @@ pawtopia-next/
 │
 ├── lib/                          # Core utilities
 │   ├── supabase/                 # Supabase clients
+│   ├── server/                   # Server-only services and API utilities
+│   │   ├── services/             # Domain services (shared by actions/routes)
+│   │   └── api/                  # API route helpers
+│   ├── api/                      # Frontend API client helpers
+
+---
+
+## API Layer Standard
+
+The codebase now supports a consistent API-first pattern for all existing domains.
+
+- Domain action endpoints live under `app/api/<domain>/actions/route.ts`
+- Shared request contract:
+
+```json
+{
+  "action": "createEvent",
+  "args": [
+    {
+      "event_name": "Community Drive"
+    }
+  ]
+}
+```
+
+- Frontend helper: `lib/api/action-client.ts`
+
+Example:
+
+```ts
+import { callApiAction } from '@/lib/api/action-client';
+
+const result = await callApiAction('events', 'createEvent', [payload]);
+```
+
+Current domains exposed:
+- `auth`, `adoption`, `dvmf`, `events`, `explore`, `lost-pets`, `onboarding`, `pets`, `posts`, `profile`, `reports`, `roles`, `store`, `stories`, `volunteer`
+
+This gives a clear separation between frontend components and backend process logic while preserving current feature behavior.
 │   │   ├── client.ts             # Browser client
 │   │   ├── server.ts             # Server client
 │   │   └── middleware.ts         # Middleware helper

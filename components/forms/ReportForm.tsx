@@ -9,7 +9,7 @@ import {
   type ReportFormValues,
   REPORT_CATEGORIES 
 } from '@/lib/validators/expanded.validators';
-import { createReport, uploadReportMedia } from '@/lib/actions/report.actions';
+import { callApiAction } from '@/lib/api/action-client';
 
 interface ReportFormProps {
   isAuthenticated: boolean;
@@ -109,7 +109,7 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
       // Upload media files first
       const mediaUrls: string[] = [];
       for (const file of mediaFiles) {
-        const uploadResult = await uploadReportMedia(file);
+        const uploadResult = await callApiAction<string>('reports', 'uploadReportMedia', [file]);
         if (uploadResult.success && uploadResult.data) {
           mediaUrls.push(uploadResult.data);
         }
@@ -139,7 +139,7 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
           : null,
       };
 
-      const result = await createReport(reportData, mediaUrls);
+      const result = await callApiAction('reports', 'createReport', [reportData, mediaUrls]);
 
       if (result.success) {
         setSuccess(true);

@@ -1,5 +1,7 @@
 'use client';
 
+import { toVerificationDocumentUrl } from '@/lib/storage/verification-documents';
+
 interface AdopterProfileInfoProps {
   profile: any;
 }
@@ -162,7 +164,7 @@ export function AdopterProfileInfo({ profile }: AdopterProfileInfoProps) {
                 {p.home_photos.map((url: string, i: number) => (
                   <div key={i} className="aspect-square rounded-lg overflow-hidden border border-gray-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Home photo ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={toVerificationDocumentUrl(url)} alt={`Home photo ${i + 1}`} className="w-full h-full object-cover" />
                   </div>
                 ))}
               </div>
@@ -176,7 +178,7 @@ export function AdopterProfileInfo({ profile }: AdopterProfileInfoProps) {
                 {p.valid_id_urls.map((url: string, i: number) => (
                   <div key={i} className="aspect-square rounded-lg overflow-hidden border border-gray-200">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Valid ID ${i + 1}`} className="w-full h-full object-cover" />
+                    <img src={toVerificationDocumentUrl(url)} alt={`Valid ID ${i + 1}`} className="w-full h-full object-cover" />
                   </div>
                 ))}
               </div>

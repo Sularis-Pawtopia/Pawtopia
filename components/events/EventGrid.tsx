@@ -48,7 +48,7 @@ export function EventGrid({ events }: EventGridProps) {
                   <div className="flex items-center gap-4 text-gray-600 text-sm mb-3">
                     <div className="flex items-center gap-1">
                       <span>🏢</span>
-                      <span>{event.users?.full_name || 'Shelter'}</span>
+                      <span>{event.users?.username || 'Organizer'}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <span>📍</span>
@@ -73,10 +73,10 @@ export function EventGrid({ events }: EventGridProps) {
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 text-sm text-gray-600">
-                  {event.max_attendees && (
+                  {event.capacity && (
                     <div className="flex items-center gap-1">
                       <span>👥</span>
-                      <span>Max {event.max_attendees} attendees</span>
+                      <span>Max {event.capacity} attendees</span>
                     </div>
                   )}
                   <div className="flex items-center gap-1">

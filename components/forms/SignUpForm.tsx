@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { signUp } from '@/lib/actions/auth.actions';
+import { callApiAction } from '@/lib/api/action-client';
 import { signUpSchema, type SignUpFormData } from '@/lib/validations';
 
 // Role definitions with badges, descriptions, and requirements
@@ -103,8 +103,8 @@ const ROLES = [
     isOrganization: true,
   },
   {
-    value: 'city_pound',
-    label: 'City Pound / DVMF',
+    value: 'dvmf',
+    label: 'DVMF',
     emoji: '🏢',
     badge: '🛡️ Official Partner',
     description: 'Government animal welfare facility',
@@ -166,7 +166,7 @@ export function SignUpForm() {
     setError(null);
     
     try {
-      const result = await signUp(data);
+      const result = await callApiAction('auth', 'signUp', [data]);
       
       if (result.error) {
         setError(result.error);
@@ -178,7 +178,7 @@ export function SignUpForm() {
           adopter: '/onboarding/adopter',
           ngo: '/onboarding/ngo',
           shelter: '/onboarding/shelter',
-          city_pound: '/onboarding/city-pound',
+          dvmf: '/onboarding/dvmf',
         };
         setTimeout(() => router.push(routeMap[data.role] || '/onboarding/user'), 1000);
       }
@@ -319,7 +319,7 @@ export function SignUpForm() {
                   type="text"
                   id="organization_name"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder={selectedRole === 'city_pound' ? 'e.g., Manila City Pound' : 'e.g., Happy Paws Shelter'}
+                  placeholder={selectedRole === 'dvmf' ? 'e.g., Manila DVMF' : 'e.g., Happy Paws Shelter'}
                   disabled={isLoading}
                 />
                 {errors.organization_name && (
@@ -327,7 +327,7 @@ export function SignUpForm() {
                 )}
               </div>
 
-              {['shelter', 'city_pound'].includes(selectedRole) && (
+              {['shelter', 'dvmf'].includes(selectedRole) && (
                 <div>
                   <label htmlFor="registration_number" className="block text-sm font-medium text-gray-700 mb-1">
                     Registration Number *
@@ -337,7 +337,7 @@ export function SignUpForm() {
                     type="text"
                     id="registration_number"
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder={selectedRole === 'city_pound' ? 'DVMF Registration #' : 'SEC/DTI Registration #'}
+                    placeholder={selectedRole === 'dvmf' ? 'DVMF Registration #' : 'SEC/DTI Registration #'}
                     disabled={isLoading}
                   />
                   {errors.registration_number && (

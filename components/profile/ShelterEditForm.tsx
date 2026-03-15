@@ -2,7 +2,8 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateShelterProfileByUserId } from '@/lib/actions/profile.actions';
+import { callApiAction } from '@/lib/api/action-client';
+import { toVerificationDocumentUrl } from '@/lib/storage/verification-documents';
 
 type PolicyOption = 'yes' | 'no' | 'sometimes' | '';
 
@@ -124,16 +125,15 @@ export function ShelterEditForm({ profile, onCancel, onSaved }: ShelterEditFormP
   const uploadFiles = async (files: File[], folder: string): Promise<string[]> => {
     if (files.length === 0) return [];
     const supabase = (await import('@/lib/supabase/client')).createClient();
-    const urls: string[] = [];
+    const objectPaths: string[] = [];
     for (const file of files) {
       const ext = file.name.split('.').pop();
       const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error } = await supabase.storage.from('verification-documents').upload(path, file);
       if (error) throw new Error(`Upload failed: ${error.message}`);
-      const { data: urlData } = supabase.storage.from('verification-documents').getPublicUrl(path);
-      urls.push(urlData.publicUrl);
+      objectPaths.push(path);
     }
-    return urls;
+    return objectPaths;
   };
 
   const handleSave = async () => {
@@ -193,7 +193,7 @@ export function ShelterEditForm({ profile, onCancel, onSaved }: ShelterEditFormP
         address: address.trim() || null,
       };
 
-      const result = await updateShelterProfileByUserId(profile.id, data);
+      const result = await callApiAction('profile', 'updateShelterProfileByUserId', [profile.id, data]);
       if (result.error) {
         setError(result.error);
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -425,7 +425,7 @@ export function ShelterEditForm({ profile, onCancel, onSaved }: ShelterEditFormP
               <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
                 {preview && (preview.startsWith('http') || preview.startsWith('blob:')) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview} alt={`Cert ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={toVerificationDocumentUrl(preview)} alt={`Cert ${i + 1}`} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xs text-gray-400">Document</div>
                 )}
@@ -454,7 +454,7 @@ export function ShelterEditForm({ profile, onCancel, onSaved }: ShelterEditFormP
               <div key={i} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200">
                 {preview && (preview.startsWith('http') || preview.startsWith('blob:')) ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview} alt={`Permit ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={toVerificationDocumentUrl(preview)} alt={`Permit ${i + 1}`} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gray-100 flex items-center justify-center text-xs text-gray-400">Document</div>
                 )}
