@@ -76,12 +76,16 @@ export function EventGrid({ events }: EventGridProps) {
                   {event.capacity && (
                     <div className="flex items-center gap-1">
                       <span>👥</span>
-                      <span>Max {event.capacity} attendees</span>
+                      <span>Capacity {event.capacity}</span>
                     </div>
                   )}
                   <div className="flex items-center gap-1">
                     <span>✓</span>
-                    <span>{event.attendee_count || 0} RSVPs</span>
+                    <span>
+                      {event.capacity
+                        ? `${event.attendee_count || 0}/${event.capacity} registered`
+                        : `${event.attendee_count || 0} registered`}
+                    </span>
                   </div>
                 </div>
 

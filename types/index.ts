@@ -75,7 +75,14 @@ export interface PostWithDetails extends Post {
   user: User;
   pet: Pet | null;
   lost_pet: LostPet | null;
-  event: Event | null;
+  event: (Event & {
+    attendee_count?: number | null;
+    waitlist_count?: number | null;
+    is_volunteer_event?: boolean | null;
+    volunteers_needed?: number | null;
+    volunteers_confirmed?: number | null;
+    organizer_id?: string | null;
+  }) | null;
   story: Story | null;
   is_liked_by_user?: boolean;
   comments?: CommentWithUser[];

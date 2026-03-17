@@ -44,14 +44,20 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
       return;
     }
     setCheckingExisting(true);
-    callApiAction('adoption', 'getMyAdoptionRequestForPet', [pet.id]).then((res) => {
-      if (res.data) {
-        setExistingReq(res.data);
-      }
-      setCheckingExisting(false);
-    }).catch(() => {
-      setCheckingExisting(false);
-    });
+    callApiAction<{ id: string; status: string; created_at?: string } | null>(
+      'adoption',
+      'getMyAdoptionRequestForPet',
+      [pet.id]
+    )
+      .then((res) => {
+        if (res.success && res.data) {
+          setExistingReq(res.data);
+        }
+        setCheckingExisting(false);
+      })
+      .catch(() => {
+        setCheckingExisting(false);
+      });
   }, [pet.id, externalRequest, isViewerAdopter, isAdopted]);
 
   const handleAdopt = async () => {

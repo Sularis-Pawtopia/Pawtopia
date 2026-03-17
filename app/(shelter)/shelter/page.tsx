@@ -5,6 +5,7 @@ import { getShelterPets } from '@/lib/actions/pet.actions';
 import { getAdoptionRequests } from '@/lib/actions/adoption.actions';
 import { ShelterStats } from '@/components/shelter/ShelterStats';
 import { ShelterDashboardContent } from '@/components/shelter/ShelterDashboardContent';
+import { OrganizerEventRegistrantsBoard } from '@/components/events/OrganizerEventRegistrantsBoard';
 import Link from 'next/link';
 
 export default async function ShelterDashboardPage() {
@@ -74,6 +75,13 @@ export default async function ShelterDashboardPage() {
             pendingCount={pendingRequests.length}
             isPendingVerification={isPendingVerification}
           />
+
+          <div className="mt-6">
+            <OrganizerEventRegistrantsBoard
+              organizerId={user.id}
+              title="Shelter Event Registrants"
+            />
+          </div>
         </div>
       </div>
     </div>

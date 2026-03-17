@@ -2,8 +2,13 @@
 
 import { revalidatePath } from 'next/cache';
 import {
+  cancelParticipantRegistrationService,
   createEventService,
+  getEventParticipantsForOrganizerService,
+  getMyParticipantRegistrationStatusService,
   getEventsService,
+  registerParticipantService,
+  reviewParticipantRegistrationService,
   rsvpEventService,
   type CreateEventInput,
   type EventFilters,
@@ -27,6 +32,42 @@ export async function rsvpEvent(eventId: string) {
   const result = await rsvpEventService(eventId);
   if (result.success) {
     revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+  }
+  return result;
+}
+
+export async function registerParticipant(eventId: string) {
+  const result = await registerParticipantService(eventId);
+  if (result.success) {
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+  }
+  return result;
+}
+
+export async function cancelParticipantRegistration(eventId: string) {
+  const result = await cancelParticipantRegistrationService(eventId);
+  if (result.success) {
+    revalidatePath('/events');
+    revalidatePath(`/events/${eventId}`);
+  }
+  return result;
+}
+
+export async function getMyParticipantRegistrationStatus(eventId: string) {
+  return getMyParticipantRegistrationStatusService(eventId);
+}
+
+export async function getEventParticipantsForOrganizer(eventId: string) {
+  return getEventParticipantsForOrganizerService(eventId);
+}
+
+export async function reviewParticipantRegistration(attendeeId: string, decision: 'approved' | 'declined') {
+  const result = await reviewParticipantRegistrationService(attendeeId, decision);
+  if (result.success && result.data?.event_id) {
+    revalidatePath('/events');
+    revalidatePath(`/events/${result.data.event_id}`);
   }
   return result;
 }

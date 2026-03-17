@@ -34,7 +34,7 @@ export default async function DvmfDashboardPage() {
             <p className="text-gray-600">Manage DVMF drives and digitize pet owner records.</p>
           </div>
 
-          <DvmfDashboardContent events={events} records={records} />
+          <DvmfDashboardContent events={events} records={records} organizerId={user.id} />
         </div>
       </div>
     </div>

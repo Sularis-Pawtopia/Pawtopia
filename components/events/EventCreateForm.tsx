@@ -19,6 +19,9 @@ export function EventCreateForm() {
     description: '',
     max_attendees: '',
     registration_required: true,
+    participant_approval_mode: 'auto' as 'auto' | 'manual',
+    is_volunteer_event: false,
+    volunteers_needed: '',
   });
 
   const uploadEventImages = async (files: File[]) => {
@@ -80,6 +83,12 @@ export function EventCreateForm() {
           description: form.description,
           max_attendees: form.max_attendees ? Number(form.max_attendees) : undefined,
           registration_required: form.registration_required,
+          participant_approval_mode: form.participant_approval_mode,
+          is_volunteer_event: form.is_volunteer_event,
+          volunteers_needed:
+            form.is_volunteer_event && form.volunteers_needed
+              ? Number(form.volunteers_needed)
+              : undefined,
           media_urls: mediaUrls,
         },
       ]);
@@ -186,6 +195,53 @@ export function EventCreateForm() {
           />
           Require registration
         </label>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+        <label className="text-sm text-gray-700 font-medium">Participant approval mode</label>
+        <select
+          value={form.participant_approval_mode}
+          onChange={(e) =>
+            setForm({
+              ...form,
+              participant_approval_mode: e.target.value as 'auto' | 'manual',
+            })
+          }
+          className="px-3 py-2 border border-gray-300 rounded-lg"
+        >
+          <option value="auto">Auto approve participants</option>
+          <option value="manual">Manual review participants</option>
+        </select>
+        <p className="md:col-span-2 text-xs text-gray-500">
+          Auto approve immediately confirms registrations (or waitlists at capacity). Manual review marks participants as pending until you approve.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={form.is_volunteer_event}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                is_volunteer_event: e.target.checked,
+                volunteers_needed: e.target.checked ? form.volunteers_needed : '',
+              })
+            }
+          />
+          Also accept volunteers
+        </label>
+
+        <input
+          type="number"
+          min="1"
+          value={form.volunteers_needed}
+          onChange={(e) => setForm({ ...form, volunteers_needed: e.target.value })}
+          placeholder="Volunteer slots (optional)"
+          disabled={!form.is_volunteer_event}
+          className="px-3 py-2 border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-400"
+        />
       </div>
 
       <div className="flex justify-end gap-3">

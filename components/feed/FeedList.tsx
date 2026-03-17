@@ -15,6 +15,7 @@ interface FeedListProps {
   initialPosts: PostWithDetails[];
   currentUserId?: string;
   userRole?: string;
+  hideComments?: boolean;
 }
 
 function formatDate(dateString: string) {
@@ -48,8 +49,14 @@ function getPostTypeTag(postType: string) {
   return tags[postType as keyof typeof tags] || tags.feed;
 }
 
-export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProps) {
+type ParticipantStatus = 'pending' | 'registered' | 'waitlisted' | 'cancelled' | null;
+type VolunteerStatus = 'pending' | 'approved' | 'rejected' | 'attended' | 'no_show' | null;
+
+export function FeedList({ initialPosts, currentUserId, userRole, hideComments = false }: FeedListProps) {
   const [posts, setPosts] = useState(initialPosts);
+  const [participantStatusByEvent, setParticipantStatusByEvent] = useState<Record<string, ParticipantStatus>>({});
+  const [volunteerStatusByEvent, setVolunteerStatusByEvent] = useState<Record<string, VolunteerStatus>>({});
+  const [eventActionPendingId, setEventActionPendingId] = useState<string | null>(null);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [showAllComments, setShowAllComments] = useState<Record<string, boolean>>({});
   const [selectedPetPost, setSelectedPetPost] = useState<PostWithDetails | null>(null);
@@ -62,15 +69,148 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
   const [editPending, setEditPending] = useState(false);
   const [editError, setEditError] = useState('');
   const kebabRef = useRef<HTMLDivElement | null>(null);
-  // Track posts with pending like actions to prevent realtime race conditions
-  const pendingLikes = useRef<Set<string>>(new Set());
-  // Debounce timers for realtime like count fetches
-  const likeDebounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   // Update posts when initialPosts changes (e.g., on page refetch)
   useEffect(() => {
     setPosts(initialPosts);
   }, [initialPosts]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const eventIds = posts
+      .map((post) => post.event?.id)
+      .filter((id): id is string => Boolean(id));
+
+    if (eventIds.length === 0) return;
+
+    let active = true;
+
+    (async () => {
+      const participantEntries: Array<[string, ParticipantStatus]> = [];
+      const volunteerEntries: Array<[string, VolunteerStatus]> = [];
+
+      await Promise.all(
+        eventIds.map(async (eventId) => {
+          const [participantResult, volunteerResult] = await Promise.all([
+            callApiAction<any>('events', 'getMyParticipantRegistrationStatus', [eventId]),
+            callApiAction<any>('volunteer', 'getMyEventVolunteerApplication', [eventId]),
+          ]);
+
+          participantEntries.push([
+            eventId,
+            participantResult.success && participantResult.data
+              ? (participantResult.data.status as ParticipantStatus)
+              : null,
+          ]);
+
+          volunteerEntries.push([
+            eventId,
+            volunteerResult.success && volunteerResult.data
+              ? (volunteerResult.data.status as VolunteerStatus)
+              : null,
+          ]);
+        })
+      );
+
+      if (!active) return;
+      setParticipantStatusByEvent(Object.fromEntries(participantEntries));
+      setVolunteerStatusByEvent(Object.fromEntries(volunteerEntries));
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [currentUserId, posts]);
+
+  const registerParticipantOnPost = useCallback(async (eventId: string) => {
+    setEventActionPendingId(eventId);
+    const result = await callApiAction<any>('events', 'registerParticipant', [eventId]);
+    setEventActionPendingId(null);
+    if (!result.success) {
+      alert(result.error || 'Failed to register participant');
+      return;
+    }
+
+    const status = (result.data?.status as ParticipantStatus) || 'registered';
+    setParticipantStatusByEvent((prev) => ({ ...prev, [eventId]: status }));
+
+    if (typeof result.data?.attendee_count === 'number') {
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.event?.id === eventId
+            ? {
+                ...post,
+                event: {
+                  ...post.event,
+                  attendee_count: result.data.attendee_count,
+                  waitlist_count: result.data.waitlist_count,
+                },
+              }
+            : post
+        )
+      );
+    }
+  }, []);
+
+  const cancelParticipantOnPost = useCallback(async (eventId: string) => {
+    setEventActionPendingId(eventId);
+    const result = await callApiAction<any>('events', 'cancelParticipantRegistration', [eventId]);
+    setEventActionPendingId(null);
+    if (!result.success) {
+      alert(result.error || 'Failed to cancel participant registration');
+      return;
+    }
+
+    setParticipantStatusByEvent((prev) => ({ ...prev, [eventId]: 'cancelled' }));
+
+    if (typeof result.data?.attendee_count === 'number') {
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.event?.id === eventId
+            ? {
+                ...post,
+                event: {
+                  ...post.event,
+                  attendee_count: result.data.attendee_count,
+                  waitlist_count: result.data.waitlist_count,
+                },
+              }
+            : post
+        )
+      );
+    }
+  }, []);
+
+  const applyVolunteerOnPost = useCallback(async (eventId: string) => {
+    setEventActionPendingId(eventId);
+    const result = await callApiAction<any>('volunteer', 'applyToEvent', [
+      {
+        event_id: eventId,
+        volunteer_id: currentUserId,
+        application_message: 'Interested in helping for this event.',
+      },
+    ]);
+    setEventActionPendingId(null);
+    if (!result.success) {
+      alert(result.error || 'Failed to apply as volunteer');
+      return;
+    }
+
+    setVolunteerStatusByEvent((prev) => ({ ...prev, [eventId]: 'pending' }));
+  }, [currentUserId]);
+
+  const cancelVolunteerOnPost = useCallback(async (eventId: string) => {
+    setEventActionPendingId(eventId);
+    const result = await callApiAction<any>('volunteer', 'cancelMyEventVolunteerApplication', [eventId]);
+    setEventActionPendingId(null);
+    if (!result.success) {
+      alert(result.error || 'Failed to cancel volunteer registration');
+      return;
+    }
+
+    setVolunteerStatusByEvent((prev) => ({ ...prev, [eventId]: null }));
+  }, []);
 
   // Close kebab when clicking outside
   useEffect(() => {
@@ -121,57 +261,48 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
     postIdsRef.current = posts.map(p => p.id);
   }, [posts]);
 
-  // Realtime subscriptions for likes and comments
+  // Realtime subscriptions for like/comment counts and comment content
   useEffect(() => {
     const supabase = createClient();
-    
-    // Helper to fetch and update like count with debouncing
-    const fetchAndUpdateLikeCount = (postId: string, fromUserId: string) => {
-      // Skip if this is the current user's action (handled by server response)
-      if (fromUserId === currentUserId) return;
-      
-      // Skip posts not in our list
-      if (!postIdsRef.current.includes(postId)) return;
-      
-      // Skip if we have a pending like action for this post
-      if (pendingLikes.current.has(postId)) return;
-      
-      // Clear any existing timer for this post
-      if (likeDebounceTimers.current[postId]) {
-        clearTimeout(likeDebounceTimers.current[postId]);
-      }
-      
-      // Debounce: wait 200ms before fetching to handle rapid like/unlike
-      likeDebounceTimers.current[postId] = setTimeout(async () => {
-        // Double-check pending status after debounce
-        if (pendingLikes.current.has(postId)) return;
-        
-        // Fetch the actual count from the database
-        const { count, error } = await supabase
-          .from('likes')
-          .select('*', { count: 'exact', head: true })
-          .eq('post_id', postId);
-        
-        if (error) {
-          console.error('Error fetching like count:', error);
-          return;
-        }
-        
-        setPosts(prevPosts =>
-          prevPosts.map(post => {
-            if (post.id !== postId) return post;
-            return {
-              ...post,
-              like_count: count ?? post.like_count,
-            };
-          })
-        );
-      }, 200);
+
+    const updateLikeCount = async (postId: string) => {
+      const { count } = await supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', postId);
+
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                like_count: count || 0,
+              }
+            : post
+        )
+      );
     };
 
-    // Subscribe to likes table for count updates
+    const updateCommentCount = async (postId: string) => {
+      const { count } = await supabase
+        .from('comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', postId);
+
+      setPosts((prevPosts) =>
+        prevPosts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                comment_count: count || 0,
+              }
+            : post
+        )
+      );
+    };
+
     const likesChannel = supabase
-      .channel('likes_realtime_v2')
+      .channel('likes_realtime_v4')
       .on(
         'postgres_changes',
         {
@@ -179,82 +310,92 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
           schema: 'public',
           table: 'likes',
         },
-        (payload) => {
-          const likeData = (payload.new || payload.old) as any;
-          if (!likeData?.post_id || !likeData?.user_id) return;
-          
-          fetchAndUpdateLikeCount(likeData.post_id, likeData.user_id);
+        async (payload) => {
+          const like = (payload.new || payload.old) as any;
+          if (!like?.post_id || !postIdsRef.current.includes(like.post_id)) return;
+          await updateLikeCount(like.post_id);
         }
       )
-      .subscribe((status) => {
-        console.log('Likes subscription status:', status);
-      });
+      .subscribe();
 
-    // Subscribe to comments for realtime comment updates - for ALL viewers
     const commentsChannel = supabase
-      .channel('comments_realtime_v2')
+      .channel('comments_realtime_v3')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'comments',
         },
         async (payload) => {
-          const newComment = payload.new as any;
-          if (!postIdsRef.current.includes(newComment.post_id)) return;
-          
-          // Fetch comment with user data
+          if (payload.eventType === 'DELETE') {
+            const deletedComment = payload.old as any;
+            if (!deletedComment?.post_id || !postIdsRef.current.includes(deletedComment.post_id)) return;
+
+            setPosts((prevPosts) =>
+              prevPosts.map((post) =>
+                post.id === deletedComment.post_id
+                  ? {
+                      ...post,
+                      comments: (post.comments || []).filter((comment: any) => comment.id !== deletedComment.id),
+                    }
+                  : post
+              )
+            );
+            await updateCommentCount(deletedComment.post_id);
+            return;
+          }
+
+          const changedComment = payload.new as any;
+          if (!changedComment?.post_id || !postIdsRef.current.includes(changedComment.post_id)) return;
+
           const { data: commentWithUser } = await supabase
             .from('comments')
             .select('*, user:users(id, username, avatar_url)')
-            .eq('id', newComment.id)
+            .eq('id', changedComment.id)
             .single();
 
-          if (commentWithUser) {
-            // Normalize user data (Supabase returns single relations as objects, not arrays)
-            const normalizedComment = {
-              ...commentWithUser,
-              user: Array.isArray(commentWithUser.user) 
-                ? commentWithUser.user[0] 
-                : commentWithUser.user
-            };
-            
-            setPosts(prevPosts =>
-              prevPosts.map(post => {
-                if (post.id !== newComment.post_id) return post;
-                // Check if comment already exists (avoid duplicates)
-                const exists = post.comments?.some((c: any) => c.id === normalizedComment.id);
-                if (exists) return post;
+          if (!commentWithUser) return;
+
+          const normalizedComment = {
+            ...commentWithUser,
+            user: Array.isArray(commentWithUser.user)
+              ? commentWithUser.user[0]
+              : commentWithUser.user,
+          };
+
+          setPosts((prevPosts) =>
+            prevPosts.map((post) => {
+              if (post.id !== changedComment.post_id) return post;
+
+              const currentComments = post.comments || [];
+              const commentIndex = currentComments.findIndex((comment: any) => comment.id === normalizedComment.id);
+
+              if (commentIndex < 0) {
                 return {
                   ...post,
-                  comments: [...(post.comments || []), normalizedComment as CommentWithUser],
+                  comments: [...currentComments, normalizedComment as CommentWithUser],
                 };
-              })
-            );
-          }
+              }
+
+              const nextComments = [...currentComments];
+              nextComments[commentIndex] = normalizedComment as CommentWithUser;
+              return { ...post, comments: nextComments };
+            })
+          );
+
+          await updateCommentCount(changedComment.post_id);
         }
       )
-      .subscribe((status) => {
-        console.log('Comments subscription status:', status);
-      });
+      .subscribe();
 
     return () => {
-      // Clear all debounce timers
-      Object.values(likeDebounceTimers.current).forEach(timer => clearTimeout(timer));
-      likeDebounceTimers.current = {};
-      
       supabase.removeChannel(likesChannel);
       supabase.removeChannel(commentsChannel);
     };
-  // Only recreate subscription when currentUserId changes (login/logout)
-  // postIdsRef handles post changes without subscription churn
   }, [currentUserId]);
 
   const handleLike = useCallback(async (postId: string) => {
-    // Mark this post as having a pending like action
-    pendingLikes.current.add(postId);
-    
     // Get current state for this post BEFORE optimistic update
     const currentPost = posts.find(p => p.id === postId);
     const wasLiked = currentPost?.is_liked_by_user || false;
@@ -273,10 +414,7 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
 
     try {
       const result = await callApiAction<{ liked: boolean; count: number }>('posts', 'likePost', [postId]);
-      
-      // Clear pending status
-      pendingLikes.current.delete(postId);
-      
+
       if (result.success) {
         const liked = typeof result.liked === 'boolean' ? result.liked : !wasLiked;
         const count = typeof result.count === 'number' ? result.count : originalCount;
@@ -306,7 +444,6 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
     } catch (error) {
       // Revert on exception
       console.error('Like action exception:', error);
-      pendingLikes.current.delete(postId);
       setPosts(prevPosts => prevPosts.map(post => 
         post.id === postId 
           ? { 
@@ -337,12 +474,14 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
     const createdComment = result.data as CommentWithUser | undefined;
     if (result.success && createdComment) {
       setCommentInputs(prev => ({ ...prev, [postId]: '' }));
+      const nextCount = typeof (result as any).count === 'number' ? (result as any).count : undefined;
       // Optimistically add comment (realtime will dedupe)
       setPosts(prevPosts => prevPosts.map(post => 
         post.id === postId 
           ? { 
               ...post, 
-              comments: [...(post.comments || []), createdComment]
+              comments: [...(post.comments || []), createdComment],
+              comment_count: typeof nextCount === 'number' ? nextCount : post.comment_count,
             }
           : post
       ));
@@ -508,10 +647,19 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
 
               {/* Post Image(s) */}
               {mediaUrls.length > 0 && (
-                <ImageCarousel 
-                  images={mediaUrls as string[]} 
-                  alt={post.title || 'Post image'} 
-                />
+                post.event ? (
+                  <Link href={`/events/${post.event.id}`} className="block">
+                    <ImageCarousel
+                      images={mediaUrls as string[]}
+                      alt={post.event.event_name || post.title || 'Post image'}
+                    />
+                  </Link>
+                ) : (
+                  <ImageCarousel
+                    images={mediaUrls as string[]}
+                    alt={post.title || 'Post image'}
+                  />
+                )
               )}
 
               {/* Post Actions */}
@@ -536,7 +684,7 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
                     <div className="flex items-center gap-2">
                       <MessageCircle className="w-6 h-6 text-gray-700" />
                       <span className="text-sm font-semibold text-gray-900">
-                        {post.comments?.length || 0}
+                        {post.comment_count || post.comments?.length || 0}
                       </span>
                     </div>
                   </div>
@@ -660,17 +808,73 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
                 {/* Event Details */}
                 {post.event && (
                   <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <Link href={`/events/${post.event.id}`} className="block hover:underline">
-                      <p className="font-bold text-purple-900 text-lg">{post.event.event_name}</p>
-                      <p className="text-sm text-purple-800 flex items-center gap-1 mt-1">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(post.event.event_date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
+                    <p className="font-bold text-purple-900 text-lg">{post.event.event_name}</p>
+                    <p className="text-sm text-purple-800 flex items-center gap-1 mt-1">
+                      <Calendar className="w-4 h-4" />
+                      {new Date(post.event.event_date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </p>
+                    <p className="text-xs text-purple-700 mt-1">
+                      {typeof post.event.capacity === 'number' && post.event.capacity > 0
+                        ? `${post.event.attendee_count || 0}/${post.event.capacity} registered`
+                        : `${post.event.attendee_count || 0} registered`}
+                    </p>
+                    {post.event.is_volunteer_event && (
+                      <p className="text-xs text-purple-700 mt-1">
+                        {typeof post.event.volunteers_needed === 'number' && post.event.volunteers_needed > 0
+                          ? `${post.event.volunteers_confirmed || 0}/${post.event.volunteers_needed} volunteers approved`
+                          : `${post.event.volunteers_confirmed || 0} volunteers approved`}
                       </p>
-                    </Link>
+                    )}
+
+                    {currentUserId &&
+                      currentUserId !== post.event.organizer_id &&
+                      currentUserId !== post.event.shelter_id && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {(participantStatusByEvent[post.event.id] === 'registered' ||
+                            participantStatusByEvent[post.event.id] === 'waitlisted' ||
+                            participantStatusByEvent[post.event.id] === 'pending') ? (
+                            <button
+                              onClick={() => cancelParticipantOnPost(post.event!.id)}
+                              disabled={eventActionPendingId === post.event.id}
+                              className="px-3 py-1.5 rounded-md border border-gray-300 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                            >
+                              Cancel Participant ({participantStatusByEvent[post.event.id]})
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => registerParticipantOnPost(post.event!.id)}
+                              disabled={eventActionPendingId === post.event.id}
+                              className="px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs hover:bg-primary-700 disabled:opacity-50"
+                            >
+                              Register as Participant
+                            </button>
+                          )}
+
+                          {post.event.is_volunteer_event && (
+                            volunteerStatusByEvent[post.event.id] ? (
+                              <button
+                                onClick={() => cancelVolunteerOnPost(post.event!.id)}
+                                disabled={eventActionPendingId === post.event.id}
+                                className="px-3 py-1.5 rounded-md border border-gray-300 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                              >
+                                Cancel Volunteer ({volunteerStatusByEvent[post.event.id]})
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => applyVolunteerOnPost(post.event!.id)}
+                                disabled={eventActionPendingId === post.event.id}
+                                className="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
+                              >
+                                Apply as Volunteer
+                              </button>
+                            )
+                          )}
+                        </div>
+                      )}
                   </div>
                 )}
 
@@ -702,7 +906,7 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
                 </p>
 
                 {/* Comments Section - Always visible like Facebook */}
-                <div className="mt-4 pt-4 border-t border-gray-200">
+                {!hideComments && <div className="mt-4 pt-4 border-t border-gray-200">
                   {post.comments && post.comments.length > 0 && (
                     <>
                       {/* View All Comments Button */}
@@ -793,7 +997,7 @@ export function FeedList({ initialPosts, currentUserId, userRole }: FeedListProp
                     {(!post.comments || post.comments.length === 0) && (
                       <p className="text-sm text-gray-400 italic mb-3">No comments yet. Be the first to comment!</p>
                     )}
-                  </div>
+                  </div>}
               </div>
             </article>
           );
