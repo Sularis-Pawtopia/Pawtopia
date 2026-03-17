@@ -17,7 +17,7 @@ export function CTASection() {
         </h2>
         
         <p className="text-xl md:text-2xl text-primary-100 mb-12 max-w-3xl mx-auto">
-          Whether you're looking to adopt or you're a shelter wanting to help more pets find homes, 
+          Whether you&apos;re looking to adopt or you&apos;re a shelter wanting to help more pets find homes, 
           join Pawtopia today.
         </p>
 
@@ -43,7 +43,7 @@ export function CTASection() {
           <div className="bg-white rounded-2xl p-8 shadow-2xl">
             <div className="text-6xl mb-4">🏠</div>
             <h3 className="text-2xl font-bold text-gray-900 mb-4">
-              I'm a Shelter
+              I&apos;m a Shelter
             </h3>
             <p className="text-gray-600 mb-6">
               Help more pets find homes with our easy-to-use platform and dedicated support.
@@ -72,7 +72,7 @@ export function CTASection() {
           <div>
             <div className="text-4xl mb-2">💬</div>
             <div className="font-semibold">24/7 Support</div>
-            <div className="text-primary-200 text-sm">We're here to help</div>
+            <div className="text-primary-200 text-sm">We&apos;re here to help</div>
           </div>
         </div>
       </div>
