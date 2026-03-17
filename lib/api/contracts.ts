@@ -50,9 +50,35 @@ export type ApiActionArgsByDomain = {
     deleteDvmfRegistryRecord: UnknownArgs;
   };
   events: {
-    getEvents: UnknownArgs;
-    createEvent: UnknownArgs;
-    rsvpEvent: UnknownArgs;
+    getEvents: [
+      {
+        upcoming?: boolean;
+        shelterId?: string;
+        eventType?: string;
+      }?
+    ];
+    createEvent: [
+      {
+        event_name: string;
+        event_type: string;
+        event_date: string;
+        end_date?: string;
+        location: string;
+        description: string;
+        max_attendees?: number;
+        registration_required?: boolean;
+        participant_approval_mode?: 'auto' | 'manual';
+        is_volunteer_event?: boolean;
+        volunteers_needed?: number;
+        media_urls?: string[];
+      }
+    ];
+    rsvpEvent: [string];
+    registerParticipant: [string];
+    cancelParticipantRegistration: [string];
+    getMyParticipantRegistrationStatus: [string];
+    getEventParticipantsForOrganizer: [string];
+    reviewParticipantRegistration: [string, 'approved' | 'declined'];
   };
   explore: {
     getExplorePets: UnknownArgs;
@@ -152,11 +178,28 @@ export type ApiActionArgsByDomain = {
     getVolunteerApplications: UnknownArgs;
     reviewVolunteerApplication: UnknownArgs;
     updateVolunteerProfile: UnknownArgs;
-    applyToEvent: UnknownArgs;
-    reviewEventVolunteer: UnknownArgs;
-    checkInVolunteer: UnknownArgs;
-    checkOutVolunteer: UnknownArgs;
-    getMyEventApplications: UnknownArgs;
+    applyToEvent: [
+      {
+        event_id: string;
+        volunteer_id: string;
+        application_message?: string;
+      }
+    ];
+    cancelMyEventVolunteerApplication: [string];
+    reviewEventVolunteer: [
+      string,
+      {
+        status: 'approved' | 'rejected' | 'attended' | 'no_show' | 'pending';
+      }
+    ];
+    checkInVolunteer: [string];
+    checkOutVolunteer: [string, number?];
+    getMyEventApplications: [];
+    getMyEventVolunteerApplication: [string];
+    getEventVolunteerApplicationsForOrganizer: [
+      string,
+      ('pending' | 'approved' | 'rejected' | 'attended' | 'no_show')?
+    ];
     getVolunteerStats: UnknownArgs;
   };
 };

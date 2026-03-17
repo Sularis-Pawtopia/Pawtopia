@@ -51,6 +51,34 @@ async function requireEventOrganizerAccess(applicationId: string) {
   return { supabase };
 }
 
+async function requireEventOrganizerByEventId(eventId: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Authentication required' as const };
+  }
+
+  const { data: event, error } = await supabase
+    .from('events')
+    .select('id, shelter_id, organizer_id')
+    .eq('id', eventId)
+    .single();
+
+  if (error || !event) {
+    return { error: 'Event not found' as const };
+  }
+
+  if (event.shelter_id !== user.id && event.organizer_id !== user.id) {
+    return { error: 'Forbidden' as const };
+  }
+
+  return { supabase, user, event };
+}
+
 // =============================================
 // APPLY AS VOLUNTEER
 // =============================================
@@ -281,15 +309,22 @@ export async function applyToEvent(
       return { success: false, error: 'Authentication required' };
     }
     
-    // Verify user is an approved volunteer
-    const { data: volunteerProfile } = await supabase
-      .from('volunteer_profiles')
-      .select('status')
-      .eq('user_id', user.id)
+    const { data: event, error: eventError } = await supabase
+      .from('events')
+      .select('id, is_volunteer_event, shelter_id, organizer_id')
+      .eq('id', data.event_id)
       .single();
-    
-    if (!volunteerProfile || volunteerProfile.status !== 'approved') {
-      return { success: false, error: 'You must be an approved volunteer to apply to events' };
+
+    if (eventError || !event) {
+      return { success: false, error: 'Event not found' };
+    }
+
+    if (event.shelter_id === user.id || event.organizer_id === user.id) {
+      return { success: false, error: 'Organizers cannot volunteer for their own event.' };
+    }
+
+    if (!event.is_volunteer_event) {
+      return { success: false, error: 'This event is not accepting volunteers' };
     }
     
     const insertData: EventVolunteerInsert = {
@@ -334,6 +369,40 @@ export async function reviewEventVolunteer(
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { data: currentApplication } = await supabase
+      .from('event_volunteers')
+      .select('id, event_id, status')
+      .eq('id', applicationId)
+      .single();
+
+    if (!currentApplication) {
+      return { success: false, error: 'Volunteer application not found' };
+    }
+
+    if (update.status === 'approved' && currentApplication.status !== 'approved') {
+      const { data: event } = await supabase
+        .from('events')
+        .select('id, volunteers_needed')
+        .eq('id', currentApplication.event_id)
+        .single();
+
+      if (event && typeof event.volunteers_needed === 'number' && event.volunteers_needed > 0) {
+        const { count: approvedCount } = await supabase
+          .from('event_volunteers')
+          .select('*', { count: 'exact', head: true })
+          .eq('event_id', currentApplication.event_id)
+          .eq('status', 'approved');
+
+        if ((approvedCount || 0) >= event.volunteers_needed) {
+          return { success: false, error: 'Volunteer limit reached for this event.' };
+        }
+      }
+    }
     
     const updateData: EventVolunteerUpdate = {
       ...update,
@@ -353,13 +422,10 @@ export async function reviewEventVolunteer(
       return { success: false, error: error.message };
     }
     
-    // Update confirmed count on event if approved
-    if (update.status === 'approved') {
-      const eventVolunteer = data as EventVolunteer;
-      await supabase.rpc('increment_event_volunteers', { 
-        event_id: eventVolunteer.event_id 
-      });
-    }
+    const eventVolunteer = data as EventVolunteer;
+    await supabase.rpc('increment_event_volunteers', {
+      event_id: eventVolunteer.event_id,
+    });
     
     revalidatePath('/dashboard/events');
     return { success: true, data: data as EventVolunteer };
@@ -480,6 +546,142 @@ export async function getMyEventApplications(): Promise<ActionResponse<EventVolu
   } catch (error) {
     console.error('Get my event applications error:', error);
     return { success: false, error: 'Failed to fetch event applications' };
+  }
+}
+
+export async function getMyEventVolunteerApplication(
+  eventId: string
+): Promise<ActionResponse<EventVolunteer | null>> {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { data, error } = await supabase
+      .from('event_volunteers')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('volunteer_id', user.id)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return { success: true, data: null };
+      }
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data as EventVolunteer };
+  } catch (error) {
+    console.error('Get my event volunteer application error:', error);
+    return { success: false, error: 'Failed to fetch volunteer application status' };
+  }
+}
+
+export async function getEventVolunteerApplicationsForOrganizer(
+  eventId: string,
+  status?: EventVolunteer['status']
+): Promise<ActionResponse<any[]>> {
+  try {
+    const auth = await requireEventOrganizerByEventId(eventId);
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
+    }
+
+    const { supabase } = auth;
+
+    let query = supabase
+      .from('event_volunteers')
+      .select(`
+        id,
+        event_id,
+        volunteer_id,
+        status,
+        application_message,
+        reviewed_by,
+        reviewed_at,
+        check_in_time,
+        check_out_time,
+        hours_logged,
+        notes,
+        created_at,
+        updated_at,
+        volunteer:users!event_volunteers_volunteer_id_fkey(
+          id,
+          username,
+          email,
+          role,
+          avatar_url,
+          city,
+          state,
+          phone,
+          address
+        )
+      `)
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true });
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data: data || [] };
+  } catch (error) {
+    console.error('Get event volunteer applications for organizer error:', error);
+    return { success: false, error: 'Failed to fetch event volunteer applications' };
+  }
+}
+
+export async function cancelMyEventVolunteerApplication(
+  eventId: string
+): Promise<ActionResponse<{ cancelled: true }>> {
+  try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Authentication required' };
+    }
+
+    const { data: existing } = await supabase
+      .from('event_volunteers')
+      .select('id, status')
+      .eq('event_id', eventId)
+      .eq('volunteer_id', user.id)
+      .single();
+
+    if (!existing) {
+      return { success: false, error: 'No volunteer registration found for this event.' };
+    }
+
+    const { error } = await supabase
+      .from('event_volunteers')
+      .delete()
+      .eq('id', existing.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    await supabase.rpc('increment_event_volunteers', { event_id: eventId });
+
+    return { success: true, data: { cancelled: true } };
+  } catch (error) {
+    console.error('Cancel my event volunteer application error:', error);
+    return { success: false, error: 'Failed to cancel volunteer registration' };
   }
 }
 

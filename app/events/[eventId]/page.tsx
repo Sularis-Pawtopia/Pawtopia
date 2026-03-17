@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { getEventPostByEventId } from '@/lib/actions/post.actions';
 import { FeedList } from '@/components/feed/FeedList';
+import { EventRegistrationPanel } from '@/components/events/EventRegistrationPanel';
+import { EventCommentsPanel } from '@/components/events/EventCommentsPanel';
 
 interface EventDetailPageProps {
   params: {
@@ -17,15 +19,44 @@ export default async function EventDetailPage({ params }: EventDetailPageProps) 
     notFound();
   }
 
+  const eventFromPost = (result.data as any).event;
+  const eventData = Array.isArray(eventFromPost) ? eventFromPost[0] : eventFromPost;
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">Event Post</h1>
-        <FeedList
-          initialPosts={[result.data as any]}
-          currentUserId={user?.id}
-          userRole={user?.role}
-        />
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="lg:col-span-3">
+            {eventData && (
+              <EventRegistrationPanel
+                event={eventData}
+                currentUser={{
+                  id: user?.id,
+                  role: user?.role,
+                }}
+              />
+            )}
+          </div>
+
+          <div className="lg:col-span-6">
+            <FeedList
+              initialPosts={[result.data as any]}
+              currentUserId={user?.id}
+              userRole={user?.role}
+              hideComments
+            />
+          </div>
+
+          <div className="lg:col-span-3">
+            <EventCommentsPanel
+              postId={(result.data as any).id}
+              currentUserId={user?.id}
+              initialComments={(result.data as any).comments || []}
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

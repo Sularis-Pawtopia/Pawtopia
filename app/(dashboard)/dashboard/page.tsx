@@ -7,6 +7,7 @@ import { FeedList } from '@/components/feed/FeedList';
 import { CreatePostButton } from '@/components/feed/CreatePostButton';
 import { SuggestedShelters } from '@/components/SuggestedShelters';
 import { MyAdoptionRequests } from '@/components/pets/MyAdoptionRequests';
+import { OrganizerEventRegistrantsBoard } from '@/components/events/OrganizerEventRegistrantsBoard';
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -70,6 +71,15 @@ export default async function DashboardPage() {
               <div className="mt-6">
                 <FeedList initialPosts={initialPosts || []} currentUserId={user.id} userRole={isPendingShelter ? 'user' : user.role} />
               </div>
+
+              {user.role === 'ngo' && (
+                <div className="mt-6">
+                  <OrganizerEventRegistrantsBoard
+                    organizerId={user.id}
+                    title="NGO Event Registrants"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Sidebar */}

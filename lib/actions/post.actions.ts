@@ -19,7 +19,7 @@ export async function likePost(postId: string) {
     .select('id')
     .eq('user_id', user.id)
     .eq('post_id', postId)
-    .single();
+    .maybeSingle();
 
   if (existingLike) {
     // Unlike
@@ -32,19 +32,13 @@ export async function likePost(postId: string) {
       return { error: error.message };
     }
 
-    // Count likes directly and update posts table
+    // Count likes directly; return the authoritative count to clients.
     const { count } = await supabase
       .from('likes')
       .select('*', { count: 'exact', head: true })
       .eq('post_id', postId);
 
     const newCount = count || 0;
-    await supabase
-      .from('posts')
-      .update({ like_count: newCount })
-      .eq('id', postId);
-
-    // Don't revalidate - client handles updates via realtime and optimistic updates
     return { success: true, liked: false, count: newCount };
   } else {
     // Like
@@ -59,19 +53,13 @@ export async function likePost(postId: string) {
       return { error: error.message };
     }
 
-    // Count likes directly and update posts table
+    // Count likes directly; return the authoritative count to clients.
     const { count } = await supabase
       .from('likes')
       .select('*', { count: 'exact', head: true })
       .eq('post_id', postId);
 
     const newCount = count || 0;
-    await supabase
-      .from('posts')
-      .update({ like_count: newCount })
-      .eq('id', postId);
-
-    // Don't revalidate - client handles updates via realtime and optimistic updates
     return { success: true, liked: true, count: newCount };
   }
 }
@@ -103,19 +91,13 @@ export async function createComment(postId: string, content: string, parentComme
     return { error: error.message };
   }
 
-  // Count comments directly and update posts table
+  // Count comments directly; return the authoritative count to clients.
   const { count } = await supabase
     .from('comments')
     .select('*', { count: 'exact', head: true })
     .eq('post_id', postId);
 
   const newCount = count || 0;
-  await supabase
-    .from('posts')
-    .update({ comment_count: newCount })
-    .eq('id', postId);
-
-  // Don't revalidate - client handles updates via realtime
   return { success: true, data, count: newCount };
 }
 
@@ -188,25 +170,52 @@ export async function getFeedPosts(filters?: {
     return { error: error.message };
   }
 
+  const postIds = (posts || []).map((p: any) => p.id);
+  const likeCounts = new Map<string, number>();
+  const commentCounts = new Map<string, number>();
+
+  if (postIds.length > 0) {
+    const [likesRows, commentsRows] = await Promise.all([
+      supabase.from('likes').select('post_id').in('post_id', postIds),
+      supabase.from('comments').select('post_id').in('post_id', postIds),
+    ]);
+
+    for (const row of likesRows.data || []) {
+      if (!row.post_id) continue;
+      likeCounts.set(row.post_id, (likeCounts.get(row.post_id) || 0) + 1);
+    }
+
+    for (const row of commentsRows.data || []) {
+      if (!row.post_id) continue;
+      commentCounts.set(row.post_id, (commentCounts.get(row.post_id) || 0) + 1);
+    }
+  }
+
+  const postsWithAccurateCounts = (posts || []).map((post: any) => ({
+    ...post,
+    like_count: likeCounts.get(post.id) || 0,
+    comment_count: commentCounts.get(post.id) || 0,
+  }));
+
   // Check if user liked and saved each post
-  if (user && posts) {
+  if (user && postsWithAccurateCounts) {
     const [likesResult, savesResult] = await Promise.all([
       supabase
         .from('likes')
         .select('post_id')
         .eq('user_id', user.id)
-        .in('post_id', posts.map((p: any) => p.id)),
+        .in('post_id', postIds),
       supabase
         .from('saved_posts')
         .select('post_id')
         .eq('user_id', user.id)
-        .in('post_id', posts.map((p: any) => p.id))
+        .in('post_id', postIds)
     ]);
 
     const likedPostIds = new Set(likesResult.data?.map((l: any) => l.post_id));
     const savedPostIds = new Set(savesResult.data?.map((s: any) => s.post_id));
 
-    const postsWithLikesAndSaves = posts.map((post: any) => ({
+    const postsWithLikesAndSaves = postsWithAccurateCounts.map((post: any) => ({
       ...post,
       is_liked_by_user: likedPostIds.has(post.id),
       is_saved_by_user: savedPostIds.has(post.id),
@@ -215,11 +224,15 @@ export async function getFeedPosts(filters?: {
     return { data: postsWithLikesAndSaves, count };
   }
 
-  return { data: posts, count };
+  return { data: postsWithAccurateCounts, count };
 }
 
 export async function getPostWithComments(postId: string) {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: post, error } = await supabase
     .from('posts')
@@ -242,7 +255,49 @@ export async function getPostWithComments(postId: string) {
     return { error: error.message };
   }
 
-  return { data: post };
+  const [likesCountResult, commentsCountResult] = await Promise.all([
+    supabase
+      .from('likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId),
+    supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', postId),
+  ]);
+
+  let isLikedByUser = false;
+  let isSavedByUser = false;
+
+  if (user) {
+    const [likeResult, saveResult] = await Promise.all([
+      supabase
+        .from('likes')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('post_id', postId)
+        .maybeSingle(),
+      supabase
+        .from('saved_posts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('post_id', postId)
+        .maybeSingle(),
+    ]);
+
+    isLikedByUser = !!likeResult.data;
+    isSavedByUser = !!saveResult.data;
+  }
+
+  return {
+    data: {
+      ...post,
+      like_count: likesCountResult.count || 0,
+      comment_count: commentsCountResult.count || 0,
+      is_liked_by_user: isLikedByUser,
+      is_saved_by_user: isSavedByUser,
+    },
+  };
 }
 
 export async function deletePost(postId: string) {
