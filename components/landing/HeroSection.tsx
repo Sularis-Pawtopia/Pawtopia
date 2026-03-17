@@ -32,7 +32,7 @@ export function HeroSection() {
                 href="/auth/signup"
                 className="bg-secondary-500 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-secondary-600 transition-all hover:scale-105 text-center border-2 border-white/20"
               >
-                I'm a Shelter
+                I&apos;m a Shelter
               </Link>
             </div>
 

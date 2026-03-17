@@ -17,7 +17,7 @@ export function MissionSection() {
 
             <p className="text-xl text-gray-600 leading-relaxed">
               Pawtopia connects compassionate families with shelter pets in need. 
-              We're on a mission to end euthanasia in dog pounds by making adoption 
+              We&apos;re on a mission to end euthanasia in dog pounds by making adoption 
               easy, transparent, and rewarding.
             </p>
 
@@ -76,8 +76,8 @@ export function MissionSection() {
 
             <div className="mt-8 p-6 bg-gradient-to-br from-primary-50 to-secondary-50 rounded-2xl">
               <p className="text-gray-700 italic">
-                "Pawtopia made it so easy to find our perfect companion. The entire 
-                process was transparent and the shelter was incredibly supportive!"
+                &quot;Pawtopia made it so easy to find our perfect companion. The entire 
+                process was transparent and the shelter was incredibly supportive!&quot;
               </p>
               <p className="mt-4 font-semibold text-gray-900">- Sarah M., Happy Adopter</p>
             </div>
