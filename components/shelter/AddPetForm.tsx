@@ -55,9 +55,10 @@ const TEMPERAMENT_OPTIONS = [
 
 interface AddPetFormProps {
   shelterId: string;
+  redirectPath?: string;
 }
 
-export function AddPetForm({ shelterId }: AddPetFormProps) {
+export function AddPetForm({ shelterId, redirectPath = '/shelter/operations' }: AddPetFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -170,7 +171,7 @@ export function AddPetForm({ shelterId }: AddPetFormProps) {
           return;
         }
 
-        router.push('/shelter');
+        router.push(redirectPath);
         router.refresh();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Something went wrong');

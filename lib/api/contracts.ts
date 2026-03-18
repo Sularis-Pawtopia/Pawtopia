@@ -65,6 +65,8 @@ export type ApiActionArgsByDomain = {
         end_date?: string;
         location: string;
         description: string;
+        post_title?: string;
+        post_tags?: string[];
         max_attendees?: number;
         registration_required?: boolean;
         participant_approval_mode?: 'auto' | 'manual';

@@ -4,8 +4,8 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { getShelterPets } from '@/lib/actions/pet.actions';
 import { getAdoptionRequests } from '@/lib/actions/adoption.actions';
+import { getEvents } from '@/lib/actions/event.actions';
 import { ShelterDashboardContent } from '@/components/shelter/ShelterDashboardContent';
-import { OrganizerEventRegistrantsBoard } from '@/components/events/OrganizerEventRegistrantsBoard';
 
 export default async function ShelterOperationsPage() {
   const user = await getCurrentUser();
@@ -20,13 +20,15 @@ export default async function ShelterOperationsPage() {
 
   const isPendingVerification = !user.is_verified;
 
-  const [petsResult, requestsResult] = await Promise.all([
+  const [petsResult, requestsResult, eventsResult] = await Promise.all([
     getShelterPets(user.id),
     getAdoptionRequests(user.id),
+    getEvents({ shelterId: user.id }),
   ]);
 
   const pets = petsResult.data || [];
   const allRequests = requestsResult.data || [];
+  const events = (eventsResult.success ? eventsResult.data : []) || [];
   const pendingRequests = allRequests.filter((request: { status: string }) => request.status === 'pending');
 
   return (
@@ -62,16 +64,11 @@ export default async function ShelterOperationsPage() {
           <ShelterDashboardContent
             pets={pets}
             allRequests={allRequests}
+            events={events}
+            organizerId={user.id}
             pendingCount={pendingRequests.length}
             isPendingVerification={isPendingVerification}
           />
-
-          <div className="mt-6">
-            <OrganizerEventRegistrantsBoard
-              organizerId={user.id}
-              title="Shelter Event Registrants"
-            />
-          </div>
         </div>
       </div>
     </div>

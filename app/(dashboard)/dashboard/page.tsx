@@ -66,7 +66,7 @@ export default async function DashboardPage() {
                 </p>
               </div>
 
-              {!isPendingShelter && <CreatePostButton />}
+              {!isPendingShelter && <CreatePostButton userRole={user.role} />}
               
               <div className="mt-6">
                 <FeedList initialPosts={initialPosts || []} currentUserId={user.id} userRole={isPendingShelter ? 'user' : user.role} />

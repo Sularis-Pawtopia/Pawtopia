@@ -1,28 +1,28 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { ArrowLeft } from 'lucide-react';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { AddPetForm } from '@/components/shelter/AddPetForm';
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
 
 export const metadata = {
-  title: 'Add New Pet | Pawtopia',
+  title: 'Add Adoptable Pet | Pawtopia',
   description: 'List a new pet for adoption',
 };
 
-export default async function AddPetPage() {
+export default async function AddDvmfPetPage() {
   const user = await getCurrentUser();
-  
+
   if (!user) {
     redirect('/auth/login');
   }
-  
-  if (user.role !== 'shelter') {
+
+  if (user.role !== 'dvmf') {
     redirect('/dashboard');
   }
-  
+
   if (!user.is_verified) {
-    redirect('/onboarding/shelter/pending');
+    redirect('/dvmf');
   }
 
   return (
@@ -30,25 +30,19 @@ export default async function AddPetPage() {
       <Sidebar user={user} />
       <div className="flex-1">
         <div className="max-w-4xl mx-auto px-4 py-6">
-          {/* Header */}
           <div className="mb-8">
-            <Link 
-              href="/shelter/operations"
+            <Link
+              href="/dvmf/operations"
               className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to Shelter Operations
+              Back to DVMF Operations
             </Link>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Add New Pet
-            </h1>
-            <p className="text-gray-600">
-              Fill out the form below to list a new pet for adoption
-            </p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Add New Pet</h1>
+            <p className="text-gray-600">Fill out the form below to list a new pet for adoption.</p>
           </div>
 
-          {/* Form */}
-          <AddPetForm shelterId={user.id} redirectPath="/shelter/operations" />
+          <AddPetForm shelterId={user.id} redirectPath="/dvmf/operations" />
         </div>
       </div>
     </div>

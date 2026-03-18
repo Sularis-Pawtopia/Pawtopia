@@ -37,16 +37,24 @@ function formatDate(dateString: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function getPostTypeTag(postType: string) {
+function getPostTypeTag(post: PostWithDetails) {
+  const isDonationDrive = post.post_type === 'event' && String(post.event?.event_type || '').toLowerCase() === 'donation_drive';
+
   const tags = {
     adoption: { label: 'Adoption', color: 'bg-green-100 text-green-800' },
     lost_pet: { label: 'Lost Pet', color: 'bg-red-100 text-red-800' },
     found_pet: { label: 'Found Pet', color: 'bg-blue-100 text-blue-800' },
     event: { label: 'Event', color: 'bg-purple-100 text-purple-800' },
+    donation_drive: { label: 'Donation Drive', color: 'bg-amber-100 text-amber-800' },
     story: { label: 'Success Story', color: 'bg-yellow-100 text-yellow-800' },
     feed: { label: 'Post', color: 'bg-gray-100 text-gray-800' },
   };
-  return tags[postType as keyof typeof tags] || tags.feed;
+
+  if (isDonationDrive) {
+    return tags.donation_drive;
+  }
+
+  return tags[post.post_type as keyof typeof tags] || tags.feed;
 }
 
 type ParticipantStatus = 'pending' | 'registered' | 'waitlisted' | 'cancelled' | null;
@@ -553,7 +561,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
         </div>
       ) : (
         posts.map((post) => {
-          const tag = getPostTypeTag(post.post_type);
+          const tag = getPostTypeTag(post);
           const mediaUrls = Array.isArray(post.media_urls) ? post.media_urls : [];
           const visibleComments = getVisibleComments(post);
           const remainingCount = getRemainingCommentsCount(post);
@@ -806,77 +814,116 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                 )}
 
                 {/* Event Details */}
-                {post.event && (
-                  <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <p className="font-bold text-purple-900 text-lg">{post.event.event_name}</p>
-                    <p className="text-sm text-purple-800 flex items-center gap-1 mt-1">
-                      <Calendar className="w-4 h-4" />
-                      {new Date(post.event.event_date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </p>
-                    <p className="text-xs text-purple-700 mt-1">
-                      {typeof post.event.capacity === 'number' && post.event.capacity > 0
-                        ? `${post.event.attendee_count || 0}/${post.event.capacity} registered`
-                        : `${post.event.attendee_count || 0} registered`}
-                    </p>
-                    {post.event.is_volunteer_event && (
-                      <p className="text-xs text-purple-700 mt-1">
-                        {typeof post.event.volunteers_needed === 'number' && post.event.volunteers_needed > 0
-                          ? `${post.event.volunteers_confirmed || 0}/${post.event.volunteers_needed} volunteers approved`
-                          : `${post.event.volunteers_confirmed || 0} volunteers approved`}
+                {post.event && (() => {
+                  const isDonationDrive = String(post.event.event_type || '').toLowerCase() === 'donation_drive';
+                  const tagList = Array.isArray(post.tags) ? post.tags : [];
+                  const goalTag = tagList.find((tag) => tag.startsWith('goal_php:'));
+                  const raisedTag = tagList.find((tag) => tag.startsWith('raised_php:'));
+                  const beneficiaryTag = tagList.find((tag) => tag.startsWith('beneficiary:'));
+                  const paymentTag = tagList.find((tag) => tag.startsWith('payment_method:'));
+
+                  const donationGoal = Number(goalTag?.split(':')[1] || 0);
+                  const raisedAmount = Number(raisedTag?.split(':')[1] || 0);
+                  const beneficiary = beneficiaryTag?.split(':').slice(1).join(':') || 'Community beneficiaries';
+                  const paymentMethod = paymentTag?.split(':')[1] || 'gcash';
+                  const percent = donationGoal > 0 ? Math.min(100, Math.round((raisedAmount / donationGoal) * 100)) : 0;
+
+                  if (isDonationDrive) {
+                    return (
+                      <div className="mb-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                        <p className="font-bold text-amber-900 text-lg">{post.event.event_name}</p>
+                        <p className="text-sm text-amber-800 flex items-center gap-1 mt-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(post.event.event_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-xs text-amber-800 mt-1">Beneficiary: {beneficiary}</p>
+                        <p className="text-xs text-amber-800 mt-1">Payment: {paymentMethod.toUpperCase()} (static prototype)</p>
+                        <div className="mt-2 h-2 w-full bg-amber-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-500 rounded-full" style={{ width: `${percent}%` }} />
+                        </div>
+                        <p className="text-xs text-amber-700 mt-1">
+                          PHP {raisedAmount.toLocaleString()} raised of PHP {donationGoal.toLocaleString()} goal
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                      <p className="font-bold text-purple-900 text-lg">{post.event.event_name}</p>
+                      <p className="text-sm text-purple-800 flex items-center gap-1 mt-1">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(post.event.event_date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
                       </p>
-                    )}
+                      <p className="text-xs text-purple-700 mt-1">
+                        {typeof post.event.capacity === 'number' && post.event.capacity > 0
+                          ? `${post.event.attendee_count || 0}/${post.event.capacity} registered`
+                          : `${post.event.attendee_count || 0} registered`}
+                      </p>
+                      {post.event.is_volunteer_event && (
+                        <p className="text-xs text-purple-700 mt-1">
+                          {typeof post.event.volunteers_needed === 'number' && post.event.volunteers_needed > 0
+                            ? `${post.event.volunteers_confirmed || 0}/${post.event.volunteers_needed} volunteers approved`
+                            : `${post.event.volunteers_confirmed || 0} volunteers approved`}
+                        </p>
+                      )}
 
-                    {currentUserId &&
-                      currentUserId !== post.event.organizer_id &&
-                      currentUserId !== post.event.shelter_id && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {(participantStatusByEvent[post.event.id] === 'registered' ||
-                            participantStatusByEvent[post.event.id] === 'waitlisted' ||
-                            participantStatusByEvent[post.event.id] === 'pending') ? (
-                            <button
-                              onClick={() => cancelParticipantOnPost(post.event!.id)}
-                              disabled={eventActionPendingId === post.event.id}
-                              className="px-3 py-1.5 rounded-md border border-gray-300 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                            >
-                              Cancel Participant ({participantStatusByEvent[post.event.id]})
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => registerParticipantOnPost(post.event!.id)}
-                              disabled={eventActionPendingId === post.event.id}
-                              className="px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs hover:bg-primary-700 disabled:opacity-50"
-                            >
-                              Register as Participant
-                            </button>
-                          )}
-
-                          {post.event.is_volunteer_event && (
-                            volunteerStatusByEvent[post.event.id] ? (
+                      {currentUserId &&
+                        currentUserId !== post.event.organizer_id &&
+                        currentUserId !== post.event.shelter_id && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(participantStatusByEvent[post.event.id] === 'registered' ||
+                              participantStatusByEvent[post.event.id] === 'waitlisted' ||
+                              participantStatusByEvent[post.event.id] === 'pending') ? (
                               <button
-                                onClick={() => cancelVolunteerOnPost(post.event!.id)}
+                                onClick={() => cancelParticipantOnPost(post.event!.id)}
                                 disabled={eventActionPendingId === post.event.id}
                                 className="px-3 py-1.5 rounded-md border border-gray-300 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                               >
-                                Cancel Volunteer ({volunteerStatusByEvent[post.event.id]})
+                                Cancel Participant ({participantStatusByEvent[post.event.id]})
                               </button>
                             ) : (
                               <button
-                                onClick={() => applyVolunteerOnPost(post.event!.id)}
+                                onClick={() => registerParticipantOnPost(post.event!.id)}
                                 disabled={eventActionPendingId === post.event.id}
-                                className="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
+                                className="px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs hover:bg-primary-700 disabled:opacity-50"
                               >
-                                Apply as Volunteer
+                                Register as Participant
                               </button>
-                            )
-                          )}
-                        </div>
-                      )}
-                  </div>
-                )}
+                            )}
+
+                            {post.event.is_volunteer_event && (
+                              volunteerStatusByEvent[post.event.id] ? (
+                                <button
+                                  onClick={() => cancelVolunteerOnPost(post.event!.id)}
+                                  disabled={eventActionPendingId === post.event.id}
+                                  className="px-3 py-1.5 rounded-md border border-gray-300 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                  Cancel Volunteer ({volunteerStatusByEvent[post.event.id]})
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => applyVolunteerOnPost(post.event!.id)}
+                                  disabled={eventActionPendingId === post.event.id}
+                                  className="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                  Apply as Volunteer
+                                </button>
+                              )
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  );
+                })()}
 
                 {/* Post Description */}
                 <div className="mb-2">

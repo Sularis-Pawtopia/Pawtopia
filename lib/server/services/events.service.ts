@@ -13,6 +13,8 @@ export type CreateEventInput = {
   end_date?: string;
   location: string;
   description: string;
+  post_title?: string;
+  post_tags?: string[];
   max_attendees?: number;
   registration_required?: boolean;
   participant_approval_mode?: 'auto' | 'manual';
@@ -176,8 +178,10 @@ export async function createEventService(formData: CreateEventInput) {
       .insert({
         user_id: user.id,
         post_type: 'event',
+        title: formData.post_title || formData.event_name,
         description: formData.description,
         media_urls: formData.media_urls || [],
+        tags: formData.post_tags || [],
       })
       .select()
       .single();

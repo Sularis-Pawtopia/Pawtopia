@@ -3,10 +3,14 @@
 import { useState } from 'react';
 import { AdoptionRequestsList } from './AdoptionRequestsList';
 import { PetGrid } from '../pets/PetGrid';
+import { DvmfEventsTab } from '../dvmf/DVMFEventsTab';
+import { OrganizerEventRegistrantsBoard } from '../events/OrganizerEventRegistrantsBoard';
 
 interface ShelterDashboardContentProps {
   pets: any[];
   allRequests: any[];
+  events: any[];
+  organizerId: string;
   pendingCount: number;
   isPendingVerification: boolean;
 }
@@ -14,10 +18,12 @@ interface ShelterDashboardContentProps {
 export function ShelterDashboardContent({
   pets,
   allRequests,
+  events,
+  organizerId,
   pendingCount,
   isPendingVerification,
 }: ShelterDashboardContentProps) {
-  const [activeTab, setActiveTab] = useState<'requests' | 'pets'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'pets' | 'events' | 'registrants'>('requests');
 
   const tabs = [
     {
@@ -36,6 +42,24 @@ export function ShelterDashboardContent({
       icon: (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+        </svg>
+      ),
+    },
+    {
+      id: 'events' as const,
+      label: `Events & Drives (${events.length})`,
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25M3 18.75A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75M3 18.75v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+        </svg>
+      ),
+    },
+    {
+      id: 'registrants' as const,
+      label: 'Event Registrants',
+      icon: (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       ),
     },
@@ -114,6 +138,22 @@ export function ShelterDashboardContent({
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === 'events' && (
+        <DvmfEventsTab
+          events={events}
+          organizerId={organizerId}
+          headerTitle="Shelter Events and Drives"
+          headerDescription="Create and monitor shelter-led events and drives from one place."
+          createButtonLabel="Create Event/Drive"
+          emptyMessage="No shelter events yet."
+          listTitle="Recent Shelter Events"
+        />
+      )}
+
+      {activeTab === 'registrants' && (
+        <OrganizerEventRegistrantsBoard organizerId={organizerId} title="Shelter Event Registrants" />
       )}
     </div>
   );
