@@ -12,7 +12,8 @@ import {
   MapPin,
   BookOpen,
   ShoppingBag,
-  LayoutDashboard,
+  BarChart3,
+  ClipboardList,
   Settings,
   Newspaper,
 } from 'lucide-react';
@@ -43,15 +44,24 @@ export function Sidebar({ user }: SidebarProps) {
   const navigation = useMemo(() => {
     if (user?.role === 'shelter') {
       return [
-        { name: 'Shelter Dashboard', href: '/shelter', icon: LayoutDashboard },
+        { name: 'Shelter Insights', href: '/shelter', icon: BarChart3 },
+        { name: 'Shelter Operations', href: '/shelter/operations', icon: ClipboardList },
         { name: 'Feed', href: '/dashboard', icon: Newspaper },
         ...baseNavigation,
       ];
     }
     if (user?.role === 'dvmf') {
       return [
-        { name: 'DVMF Dashboard', href: '/dvmf', icon: LayoutDashboard },
+        { name: 'DVMF Insights', href: '/dvmf', icon: BarChart3 },
+        { name: 'DVMF Operations', href: '/dvmf/operations', icon: ClipboardList },
         { name: 'Feed', href: '/dashboard', icon: Newspaper },
+        ...baseNavigation,
+      ];
+    }
+    if (user?.role === 'ngo') {
+      return [
+        { name: 'NGO Insights', href: '/dashboard', icon: BarChart3 },
+        { name: 'NGO Operations', href: '/dashboard/ngo-operations', icon: ClipboardList },
         ...baseNavigation,
       ];
     }
@@ -61,8 +71,19 @@ export function Sidebar({ user }: SidebarProps) {
     ];
   }, [user?.role]);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + '/');
+  const activeHref = useMemo(() => {
+    let bestMatch = '';
+    for (const item of navigation) {
+      const matches = pathname === item.href || pathname.startsWith(item.href + '/');
+      if (!matches) continue;
+      if (item.href.length > bestMatch.length) {
+        bestMatch = item.href;
+      }
+    }
+    return bestMatch;
+  }, [pathname, navigation]);
+
+  const isActive = (href: string) => href === activeHref;
 
   return (
     <>

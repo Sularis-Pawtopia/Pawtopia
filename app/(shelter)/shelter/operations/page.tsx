@@ -1,18 +1,19 @@
 import { redirect } from 'next/navigation';
-import { getCurrentUser } from '@/lib/actions/auth.actions';
+import Link from 'next/link';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { getShelterPets } from '@/lib/actions/pet.actions';
 import { getAdoptionRequests } from '@/lib/actions/adoption.actions';
-import { ShelterInsightsDashboard } from '@/components/shelter/ShelterInsightsDashboard';
-import Link from 'next/link';
+import { ShelterDashboardContent } from '@/components/shelter/ShelterDashboardContent';
+import { OrganizerEventRegistrantsBoard } from '@/components/events/OrganizerEventRegistrantsBoard';
 
-export default async function ShelterDashboardPage() {
+export default async function ShelterOperationsPage() {
   const user = await getCurrentUser();
-  
+
   if (!user) {
     redirect('/auth/login');
   }
-  
+
   if (user.role !== 'shelter') {
     redirect('/dashboard');
   }
@@ -26,12 +27,13 @@ export default async function ShelterDashboardPage() {
 
   const pets = petsResult.data || [];
   const allRequests = requestsResult.data || [];
+  const pendingRequests = allRequests.filter((request: { status: string }) => request.status === 'pending');
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar user={user} />
       <div className="flex-1">
         <div className="max-w-7xl mx-auto px-4 py-6">
-          {/* Pending Verification Banner */}
           {isPendingVerification && (
             <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-5 flex items-start gap-4">
               <span className="text-3xl">⏳</span>
@@ -40,7 +42,7 @@ export default async function ShelterDashboardPage() {
                 <p className="text-amber-800 text-sm mt-1">
                   Your shelter registration is currently under review by our admin team.
                   You won&apos;t be able to post pets for adoption until your account is verified.
-                  This usually takes 1–3 business days.
+                  This usually takes 1-3 business days.
                 </p>
                 <Link
                   href="/onboarding/shelter/pending"
@@ -53,27 +55,22 @@ export default async function ShelterDashboardPage() {
           )}
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Shelter Insights
-            </h1>
-            <p className="text-gray-600">
-              Track adoption and care performance with filterable monthly and yearly analytics.
-            </p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Shelter Operations</h1>
+            <p className="text-gray-600">Execute workflows for listing management, adoption processing, and registrant handling.</p>
           </div>
 
-          <ShelterInsightsDashboard pets={pets} requests={allRequests} />
+          <ShelterDashboardContent
+            pets={pets}
+            allRequests={allRequests}
+            pendingCount={pendingRequests.length}
+            isPendingVerification={isPendingVerification}
+          />
 
-          <div className="mt-6 bg-white border border-gray-200 rounded-xl p-5">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Need to process requests and listings?</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Use Shelter Operations to manage pet postings, review adoption applications, and monitor event registrants.
-            </p>
-            <Link
-              href="/shelter/operations"
-              className="inline-flex items-center px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700 transition-colors"
-            >
-              Open Shelter Operations
-            </Link>
+          <div className="mt-6">
+            <OrganizerEventRegistrantsBoard
+              organizerId={user.id}
+              title="Shelter Event Registrants"
+            />
           </div>
         </div>
       </div>

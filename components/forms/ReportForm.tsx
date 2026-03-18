@@ -213,7 +213,7 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
         {isAnonymous && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <p className="text-sm text-gray-600 mb-3">
-              Optional: Provide contact info if you&apos;d like updates on your report
+              Optional: Provide contact info if you'd like updates on your report
             </p>
             <div className="grid grid-cols-2 gap-4">
               <input

@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 import { useSidebar } from './SidebarContext';
 import {
   Home, Compass, Heart, Calendar, MapPin, BookOpen, ShoppingBag,
-  Menu, X, Bell, PawPrint, LayoutDashboard, Settings, LogOut,
+  Menu, X, Bell, PawPrint, Settings, LogOut, BarChart3, ClipboardList,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -20,7 +20,13 @@ interface NavbarProps {
   };
 }
 
-const mainNavTabs = [
+interface NavTab {
+  href: string;
+  label: string;
+  icon: any;
+}
+
+const mainNavTabs: NavTab[] = [
   { href: '/dashboard', label: 'Feed', icon: Home },
   { href: '/pets', label: 'Pets', icon: Heart },
   { href: '/explore', label: 'Explore', icon: Compass },
@@ -37,16 +43,45 @@ export function Navbar({ user }: NavbarProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
-  const dashboardTab = user.role === 'shelter'
-    ? { href: '/shelter', label: 'Shelter', icon: LayoutDashboard }
+  const roleTabs: NavTab[] = user.role === 'shelter'
+    ? [
+      { href: '/shelter', label: 'Shelter Insights', icon: BarChart3 },
+      { href: '/shelter/operations', label: 'Shelter Ops', icon: ClipboardList },
+    ]
     : user.role === 'dvmf'
-      ? { href: '/dvmf', label: 'DVMF', icon: LayoutDashboard }
-      : null;
+      ? [
+        { href: '/dvmf', label: 'DVMF Insights', icon: BarChart3 },
+        { href: '/dvmf/operations', label: 'DVMF Ops', icon: ClipboardList },
+      ]
+      : user.role === 'ngo'
+        ? [
+          { href: '/dashboard', label: 'NGO Insights', icon: BarChart3 },
+          { href: '/dashboard/ngo-operations', label: 'NGO Ops', icon: ClipboardList },
+        ]
+        : [];
 
-  const navTabs = dashboardTab ? [dashboardTab, ...mainNavTabs] : mainNavTabs;
+  const navTabs = useMemo(() => {
+    const seen = new Set<string>();
+    return [...roleTabs, ...mainNavTabs].filter((tab) => {
+      if (seen.has(tab.href)) return false;
+      seen.add(tab.href);
+      return true;
+    });
+  }, [roleTabs]);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + '/');
+  const activeHref = useMemo(() => {
+    let bestMatch = '';
+    for (const tab of navTabs) {
+      const matches = pathname === tab.href || pathname.startsWith(tab.href + '/');
+      if (!matches) continue;
+      if (tab.href.length > bestMatch.length) {
+        bestMatch = tab.href;
+      }
+    }
+    return bestMatch;
+  }, [pathname, navTabs]);
+
+  const isActive = (href: string) => href === activeHref;
 
   // Close profile dropdown on outside click
   useEffect(() => {

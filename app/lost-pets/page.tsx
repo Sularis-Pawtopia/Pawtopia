@@ -37,7 +37,7 @@ export default async function LostPetsPage() {
                 Help Us Reunite Families
               </h2>
               <p className="text-primary-800">
-                If you&apos;ve lost a pet or found one, post it here. Our community will help spread the word 
+                If you've lost a pet or found one, post it here. Our community will help spread the word 
                 and increase the chances of a happy reunion.
               </p>
               {!user && (

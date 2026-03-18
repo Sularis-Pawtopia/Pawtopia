@@ -289,16 +289,23 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          {editingId ? 'Edit Pet Owner Record' : 'Register Pet Owner Record'}
-        </h3>
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
-            {error}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 xl:h-[calc(100vh-13rem)]">
+        <section className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col min-h-[560px] xl:min-h-0">
+          <div className="px-5 py-4 border-b border-gray-200 bg-white">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {editingId ? 'Edit Pet Owner Record' : 'Register Pet Owner Record'}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1">Capture pet and owner details with complete vaccination and sterilization data.</p>
           </div>
-        )}
-        <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          <div className="p-5 overflow-y-auto">
+            {error && (
+              <div className="mb-4 bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="pet_name" className="block text-sm font-medium text-gray-700 mb-1">Pet Name</label>
             <input id="pet_name" className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="e.g., Panpan" value={form.pet_name} onChange={(e) => setForm({ ...form, pet_name: e.target.value })} required />
@@ -404,17 +411,18 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
               {isPending ? 'Saving...' : editingId ? 'Update Registry Record' : 'Save Registry Record'}
             </button>
           </div>
-        </form>
-      </div>
+            </form>
+          </div>
+        </section>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Registry Records</h3>
-          <span className="text-sm text-gray-500">{filteredRecords.length} of {records.length} total</span>
-        </div>
+        <section className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col min-h-[560px] xl:min-h-0">
+          <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-white">
+            <h3 className="font-semibold text-gray-900">Registry Records</h3>
+            <span className="text-sm text-gray-500">{filteredRecords.length} of {records.length} total</span>
+          </div>
 
-        <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -449,11 +457,11 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
               Reset Filters
             </button>
           </div>
-        </div>
+          </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600">
+          <div className="flex-1 overflow-auto">
+            <table className="w-full text-sm min-w-[920px]">
+              <thead className="sticky top-0 bg-gray-50 text-gray-600">
               <tr>
                 <th className="text-left px-4 py-3">Pet</th>
                 <th className="text-left px-4 py-3">Birth Date / Age</th>
@@ -463,8 +471,8 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
                 <th className="text-left px-4 py-3">Created</th>
                 <th className="text-left px-4 py-3">Actions</th>
               </tr>
-            </thead>
-            <tbody>
+              </thead>
+              <tbody>
               {filteredRecords.length === 0 ? (
                 <tr>
                   <td className="px-4 py-6 text-center text-gray-500" colSpan={7}>No records found.</td>
@@ -523,9 +531,10 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       {/* Pet Profile Modal */}
