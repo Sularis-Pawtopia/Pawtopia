@@ -320,4 +320,109 @@ export interface UploadedFile {
   bucket: string;
 }
 
+// Healthcare scheduling types (DVMF approval workflow)
+export type HealthcareServiceType = 'spay_neuter' | 'vaccination' | 'deworming';
+
+export type HealthcareAppointmentStatus =
+  | 'pending_approval'
+  | 'approved_pending_payment'
+  | 'paid_scheduled'
+  | 'rejected'
+  | 'completed'
+  | 'cancelled';
+
+export type HealthcarePaymentStatus =
+  | 'pending'
+  | 'paid'
+  | 'failed'
+  | 'cancelled'
+  | 'refunded';
+
+export interface HealthcareServiceRecord {
+  id: string;
+  dvmf_id: string;
+  service_type: HealthcareServiceType;
+  service_name: string;
+  description?: string | null;
+  is_paid: boolean;
+  base_fee: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HealthcareSlotRecord {
+  id: string;
+  dvmf_id: string;
+  service_id: string;
+  slot_start: string;
+  slot_end: string;
+  capacity: number;
+  approved_bookings_count: number;
+  is_active: boolean;
+  notes?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HealthcareAppointmentRequestRecord {
+  id: string;
+  requester_id: string;
+  dvmf_id: string;
+  pet_id: string;
+  service_id: string;
+  slot_id?: string | null;
+  reason?: string | null;
+  requester_notes?: string | null;
+  status: HealthcareAppointmentStatus;
+  service_base_fee: number;
+  platform_service_fee: number;
+  total_fee: number;
+  payment_required: boolean;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_notes?: string | null;
+  approved_at?: string | null;
+  paid_at?: string | null;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HealthcarePaymentTransactionRecord {
+  id: string;
+  appointment_request_id: string;
+  requester_id: string;
+  dvmf_id: string;
+  provider: string;
+  provider_reference?: string | null;
+  provider_checkout_url?: string | null;
+  amount_service: number;
+  amount_platform_fee: number;
+  amount_total: number;
+  status: HealthcarePaymentStatus;
+  provider_payload?: Record<string, unknown> | null;
+  provider_callback_payload?: Record<string, unknown> | null;
+  paid_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateHealthcareAppointmentRequestPayload {
+  dvmf_id: string;
+  pet_id: string;
+  service_id: string;
+  slot_id?: string;
+  reason?: string;
+  requester_notes?: string;
+}
+
+export interface ReviewHealthcareAppointmentPayload {
+  request_id: string;
+  decision: 'approve' | 'reject';
+  review_notes?: string;
+}
+
 export type StorageBucket = 'pet-images' | 'profile-avatars' | 'event-images' | 'documents' | 'stories';

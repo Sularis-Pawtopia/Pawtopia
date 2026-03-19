@@ -61,6 +61,24 @@ pnpm run dev
 
 Visit: `http://localhost:3000`
 
+### **Step 3.1: Configure Maya Sandbox for Healthcare Payments**
+
+Add these variables to `.env.local` for local sandbox checkout and callback testing:
+
+```env
+HEALTHCARE_PLATFORM_SERVICE_FEE_PHP=50
+NEXT_PUBLIC_HEALTHCARE_PLATFORM_SERVICE_FEE_PHP=50
+MAYA_SANDBOX_BASE_URL=https://pg-sandbox.paymaya.com
+MAYA_API_KEY=<maya_sandbox_api_key>
+MAYA_SECRET_KEY=<maya_sandbox_secret_key>
+MAYA_WEBHOOK_SECRET=<maya_webhook_secret>
+```
+
+Register your webhook callback URL in Maya sandbox:
+
+- Local with tunnel: `https://<your-tunnel-domain>/api/healthcare/webhooks/maya`
+- Validation header expected by backend: `x-maya-signature` (HMAC SHA256)
+
 ### **Step 4: Test Authentication Flow**
 
 1. Navigate to `/auth/login` or `/auth/signup`

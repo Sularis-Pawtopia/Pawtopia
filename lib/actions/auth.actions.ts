@@ -5,6 +5,40 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import type { SignUpFormData, LoginFormData } from '@/lib/validations';
 
+function toReadableErrorMessage(error: unknown, fallback: string) {
+  if (!error) {
+    return fallback;
+  }
+
+  if (typeof error === 'string') {
+    const normalized = error.trim();
+    if (!normalized || normalized === '{}' || normalized === '[object Object]') {
+      return fallback;
+    }
+    return normalized;
+  }
+
+  if (typeof error === 'object') {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === 'string') {
+      const normalized = maybeMessage.trim();
+      if (normalized && normalized !== '{}' && normalized !== '[object Object]') {
+        return normalized;
+      }
+    }
+
+    const maybeError = (error as { error?: unknown }).error;
+    if (typeof maybeError === 'string') {
+      const normalized = maybeError.trim();
+      if (normalized && normalized !== '{}' && normalized !== '[object Object]') {
+        return normalized;
+      }
+    }
+  }
+
+  return fallback;
+}
+
 export async function signUp(formData: SignUpFormData) {
   const supabase = await createClient();
 
@@ -70,56 +104,66 @@ export async function signUp(formData: SignUpFormData) {
 }
 
 export async function login(formData: LoginFormData) {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email: formData.email,
-    password: formData.password,
-  });
+    const { error } = await supabase.auth.signInWithPassword({
+      email: formData.email,
+      password: formData.password,
+    });
 
-  if (error) {
-    return { error: error.message };
-  }
-
-  // Check if user is verified and get their role
-  const { data: user } = await supabase.auth.getUser();
-  if (user.user) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role, primary_role, is_verified')
-      .eq('id', user.user.id)
-      .single();
-
-    // Use primary_role if set, otherwise fall back to role
-    const userRole = profile?.primary_role || profile?.role || 'regular_user';
-
-    if (profile && !profile.is_verified) {
-      // Redirect to appropriate onboarding based on role
-      const onboardingRoutes: Record<string, string> = {
-        regular_user: '/onboarding/user',
-        volunteer: '/onboarding/volunteer',
-        adopter: '/onboarding/adopter',
-        ngo: '/onboarding/ngo',
-        shelter: '/onboarding/shelter',
-        dvmf: '/onboarding/dvmf',
+    if (error) {
+      return {
+        success: false,
+        error: toReadableErrorMessage(error, 'Unable to sign in. Please check your email and password.'),
       };
-      return { success: true, redirectTo: onboardingRoutes[userRole] || '/onboarding/user' };
     }
 
-    // Redirect to appropriate dashboard
-    const dashboardRoutes: Record<string, string> = {
-      admin: '/admin',
-      regular_user: '/dashboard',
-      volunteer: '/dashboard',
-      adopter: '/dashboard',
-      ngo: '/dashboard',
-      shelter: '/shelter',
-      dvmf: '/dvmf',
-    };
-    return { success: true, redirectTo: dashboardRoutes[userRole] || '/dashboard' };
-  }
+    // Check if user is verified and get their role
+    const { data: user } = await supabase.auth.getUser();
+    if (user.user) {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role, primary_role, is_verified')
+        .eq('id', user.user.id)
+        .single();
 
-  return { success: true, redirectTo: '/dashboard' };
+      // Use primary_role if set, otherwise fall back to role
+      const userRole = profile?.primary_role || profile?.role || 'regular_user';
+
+      if (profile && !profile.is_verified) {
+        // Redirect to appropriate onboarding based on role
+        const onboardingRoutes: Record<string, string> = {
+          regular_user: '/onboarding/user',
+          volunteer: '/onboarding/volunteer',
+          adopter: '/onboarding/adopter',
+          ngo: '/onboarding/ngo',
+          shelter: '/onboarding/shelter',
+          dvmf: '/onboarding/dvmf',
+        };
+        return { success: true, redirectTo: onboardingRoutes[userRole] || '/onboarding/user' };
+      }
+
+      // Redirect to appropriate dashboard
+      const dashboardRoutes: Record<string, string> = {
+        admin: '/admin',
+        regular_user: '/dashboard',
+        volunteer: '/dashboard',
+        adopter: '/dashboard',
+        ngo: '/dashboard',
+        shelter: '/shelter',
+        dvmf: '/dvmf',
+      };
+      return { success: true, redirectTo: dashboardRoutes[userRole] || '/dashboard' };
+    }
+
+    return { success: true, redirectTo: '/dashboard' };
+  } catch (error) {
+    return {
+      success: false,
+      error: toReadableErrorMessage(error, 'Unable to sign in right now. Please try again in a moment.'),
+    };
+  }
 }
 
 export async function logout() {

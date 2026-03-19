@@ -7,6 +7,14 @@ import { FeedList } from '@/components/feed/FeedList';
 import { CreatePostButton } from '@/components/feed/CreatePostButton';
 import { SuggestedShelters } from '@/components/SuggestedShelters';
 import { MyAdoptionRequests } from '@/components/pets/MyAdoptionRequests';
+import { HealthcareBookingCard } from '@/components/healthcare/HealthcareBookingCard';
+import { MyHealthcareAppointments } from '@/components/healthcare/MyHealthcareAppointments';
+import {
+  getDvmfHealthcareBranches,
+  getHealthcareEligiblePets,
+  getHealthcareServices,
+  getMyHealthcareAppointmentRequests,
+} from '@/lib/actions/healthcare.actions';
 import Link from 'next/link';
 
 export default async function DashboardPage() {
@@ -22,13 +30,22 @@ export default async function DashboardPage() {
   }
 
   const isPendingShelter = user.role === 'shelter' && !user.is_verified;
+  const canUseHealthcareRequesterFlow = ['adopter', 'volunteer', 'regular_user'].includes(user.role);
 
-  const [{ data: initialPosts }, adoptionResult] = await Promise.all([
+  const [{ data: initialPosts }, adoptionResult, healthcareRequestsResult, healthcareBranchesResult, healthcareServicesResult, healthcarePetsResult] = await Promise.all([
     getFeedPosts({ limit: 10 }),
     user.role === 'adopter' ? getUserAdoptionRequests(user.id) : Promise.resolve({ data: [] }),
+    canUseHealthcareRequesterFlow ? getMyHealthcareAppointmentRequests() : Promise.resolve({ success: true, data: [] }),
+    canUseHealthcareRequesterFlow ? getDvmfHealthcareBranches() : Promise.resolve({ success: true, data: [] }),
+    canUseHealthcareRequesterFlow ? getHealthcareServices() : Promise.resolve({ success: true, data: [] }),
+    canUseHealthcareRequesterFlow ? getHealthcareEligiblePets() : Promise.resolve({ success: true, data: [] }),
   ]);
 
   const adoptionRequests = adoptionResult.data || [];
+  const healthcareRequests = (healthcareRequestsResult.success ? healthcareRequestsResult.data : []) || [];
+  const healthcareBranches = (healthcareBranchesResult.success ? healthcareBranchesResult.data : []) || [];
+  const healthcareServices = (healthcareServicesResult.success ? healthcareServicesResult.data : []) || [];
+  const healthcarePets = (healthcarePetsResult.success ? healthcarePetsResult.data : []) || [];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -87,6 +104,13 @@ export default async function DashboardPage() {
                     </h3>
                     <MyAdoptionRequests requests={adoptionRequests} />
                   </div>
+                )}
+
+                {canUseHealthcareRequesterFlow && (
+                  <>
+                    <HealthcareBookingCard initialBranches={healthcareBranches} initialServices={healthcareServices} initialPets={healthcarePets} canAddPet={user.role === 'adopter'} />
+                    <MyHealthcareAppointments initialRequests={healthcareRequests} />
+                  </>
                 )}
 
                 {/* Verification Status Tracker for pending shelters */}

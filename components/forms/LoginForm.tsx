@@ -7,6 +7,40 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { callApiAction } from '@/lib/api/action-client';
 import { loginSchema, type LoginFormData } from '@/lib/validations';
 
+function getApiErrorMessage(error: unknown, fallback: string) {
+  if (!error) {
+    return fallback;
+  }
+
+  if (typeof error === 'string') {
+    const normalized = error.trim();
+    if (!normalized || normalized === '{}' || normalized === '[object Object]') {
+      return fallback;
+    }
+    return normalized;
+  }
+
+  if (typeof error === 'object') {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string') {
+      const normalized = message.trim();
+      if (normalized && normalized !== '{}' && normalized !== '[object Object]') {
+        return normalized;
+      }
+    }
+
+    const nested = (error as { error?: unknown }).error;
+    if (typeof nested === 'string') {
+      const normalized = nested.trim();
+      if (normalized && normalized !== '{}' && normalized !== '[object Object]') {
+        return normalized;
+      }
+    }
+  }
+
+  return fallback;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +62,13 @@ export function LoginForm() {
       const result = await callApiAction<{ redirectTo?: string }>('auth', 'login', [data]);
       
       if (result?.error) {
-        setError(result.error);
+        setError(getApiErrorMessage(result.error, 'Unable to sign in. Please check your email and password.'));
+        setIsLoading(false);
+        return;
+      }
+
+      if (result?.success === false) {
+        setError('Unable to sign in right now. Please try again.');
         setIsLoading(false);
         return;
       }

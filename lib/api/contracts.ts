@@ -3,6 +3,7 @@ export type ApiDomain =
   | 'adoption'
   | 'dvmf'
   | 'events'
+  | 'healthcare'
   | 'explore'
   | 'lost-pets'
   | 'onboarding'
@@ -81,6 +82,96 @@ export type ApiActionArgsByDomain = {
     getMyParticipantRegistrationStatus: [string];
     getEventParticipantsForOrganizer: [string];
     reviewParticipantRegistration: [string, 'approved' | 'declined'];
+  };
+  healthcare: {
+    getHealthcareServices: [string?];
+    getDvmfHealthcareBranches: [];
+    getHealthcareEligiblePets: [];
+    getAvailableHealthcareSlots: [
+      string,
+      {
+        serviceType?: 'spay_neuter' | 'vaccination' | 'deworming';
+        serviceId?: string;
+        date?: string;
+        from?: string;
+        to?: string;
+      }?
+    ];
+    getBranchAvailabilitySlots: [string, string, string];
+    createHealthcareAppointmentRequest: [
+      {
+        dvmf_id: string;
+        pet_id: string;
+        service_id: string;
+        slot_id?: string;
+        reason?: string;
+        requester_notes?: string;
+      }
+    ];
+    getMyHealthcareAppointmentRequests: [];
+    getDvmfHealthcareAppointmentRequests: [
+      {
+        status?:
+          | 'pending_approval'
+          | 'approved_pending_payment'
+          | 'paid_scheduled'
+          | 'rejected'
+          | 'completed'
+          | 'cancelled';
+      }?
+    ];
+    reviewHealthcareAppointmentRequest: [string, 'approve' | 'reject', string?];
+    createHealthcareSlot: [
+      {
+        service_id: string;
+        slot_start: string;
+        slot_end: string;
+        capacity: number;
+        notes?: string;
+      }
+    ];
+    getDvmfHealthcareCalendarWeek: [string?];
+    getDvmfHealthcareCalendar: ['week' | 'month' | 'year', string?];
+    getDvmfHealthcareServicesForOwner: [];
+    saveDvmfHealthcareService: [
+      {
+        id?: string;
+        service_type?: 'spay_neuter' | 'vaccination' | 'deworming';
+        service_name: string;
+        description?: string;
+        is_paid: boolean;
+        base_fee: number;
+        duration_minutes: number;
+        is_active?: boolean;
+      }
+    ];
+    removeDvmfHealthcareService: [string];
+    getDvmfBranchProfile: [];
+    updateDvmfBranchProfile: [
+      {
+        organization_name: string;
+        description?: string;
+        phone?: string;
+        email?: string;
+        address?: string;
+        city?: string;
+        state?: string;
+        zip_code?: string;
+        operating_hours: {
+          slot_minutes: number;
+          days: Record<
+            string,
+            {
+              is_open: boolean;
+              open_time: string;
+              close_time: string;
+              capacity_per_slot: number;
+            }
+          >;
+        };
+      }
+    ];
+    initiateMayaCheckout: [string];
   };
   explore: {
     getExplorePets: UnknownArgs;

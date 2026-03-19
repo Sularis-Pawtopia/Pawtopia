@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { DvmfEventsTab } from './DVMFEventsTab';
 import { DvmfRegistryTab } from './DvmfRegistryTab';
+import { HealthcareAppointmentRequestsList } from './HealthcareAppointmentRequestsList';
+import { HealthcareCalendarWeek } from './HealthcareCalendarWeek';
+import { HealthcareServicePricing } from './HealthcareServicePricing';
 import { OrganizerEventRegistrantsBoard } from '@/components/events/OrganizerEventRegistrantsBoard';
 import { AdoptionRequestsList } from '@/components/shelter/AdoptionRequestsList';
 import { PetGrid } from '@/components/pets/PetGrid';
@@ -13,7 +16,16 @@ interface DvmfDashboardContentProps {
   records: any[];
   pets: any[];
   allRequests: any[];
+  healthcareRequests: any[];
+  healthcareCalendarData: {
+    view: 'week' | 'month' | 'year';
+    period_start: string;
+    period_end: string;
+    slots: any[];
+  } | null;
+  healthcareServices: any[];
   pendingCount: number;
+  pendingHealthcareCount: number;
   isPendingVerification: boolean;
   organizerId?: string;
 }
@@ -23,11 +35,15 @@ export function DvmfDashboardContent({
   records,
   pets,
   allRequests,
+  healthcareRequests,
+  healthcareCalendarData,
+  healthcareServices,
   pendingCount,
+  pendingHealthcareCount,
   isPendingVerification,
   organizerId,
 }: DvmfDashboardContentProps) {
-  const [activeTab, setActiveTab] = useState<'requests' | 'pets' | 'events' | 'registrants' | 'registry'>('requests');
+  const [activeTab, setActiveTab] = useState<'requests' | 'pets' | 'events' | 'registrants' | 'registry' | 'appointments' | 'calendar' | 'pricing'>('requests');
 
   return (
     <div>
@@ -92,6 +108,44 @@ export function DvmfDashboardContent({
           </svg>
           Pet Registry
         </button>
+        <button
+          onClick={() => setActiveTab('appointments')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'appointments' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 6.75v4.5m0 0v4.5m0-4.5h4.5m-4.5 0h-4.5M3.75 8.25h16.5M4.5 3.75h15a.75.75 0 01.75.75v15a.75.75 0 01-.75.75h-15a.75.75 0 01-.75-.75v-15a.75.75 0 01.75-.75z" />
+          </svg>
+          Healthcare Requests
+          {pendingHealthcareCount > 0 && (
+            <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-bold bg-yellow-400 text-yellow-900">
+              {pendingHealthcareCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('calendar')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 8.25h18M4.5 5.25h15A1.5 1.5 0 0121 6.75v12A1.5 1.5 0 0119.5 20.25h-15A1.5 1.5 0 013 18.75v-12a1.5 1.5 0 011.5-1.5z" />
+          </svg>
+          Healthcare Calendar
+        </button>
+        <button
+          onClick={() => setActiveTab('pricing')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+            activeTab === 'pricing' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-9h6m-7.5 9h9a1.5 1.5 0 001.5-1.5v-9A1.5 1.5 0 0016.5 6h-9A1.5 1.5 0 006 7.5v9A1.5 1.5 0 007.5 18z" />
+          </svg>
+          Service Pricing
+        </button>
       </div>
 
       {activeTab === 'requests' ? (
@@ -141,6 +195,12 @@ export function DvmfDashboardContent({
         organizerId ? (
           <OrganizerEventRegistrantsBoard organizerId={organizerId} title="DVMF Event Registrants" />
         ) : null
+      ) : activeTab === 'appointments' ? (
+        <HealthcareAppointmentRequestsList requests={healthcareRequests} />
+      ) : activeTab === 'calendar' ? (
+        <HealthcareCalendarWeek initialCalendarData={healthcareCalendarData} />
+      ) : activeTab === 'pricing' ? (
+        <HealthcareServicePricing services={healthcareServices} />
       ) : (
         <DvmfRegistryTab initialRecords={records} />
       )}
