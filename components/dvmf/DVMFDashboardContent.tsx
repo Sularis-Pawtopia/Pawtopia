@@ -18,7 +18,7 @@ interface DvmfDashboardContentProps {
   allRequests: any[];
   healthcareRequests: any[];
   healthcareCalendarData: {
-    view: 'week' | 'month' | 'year';
+    view: 'day' | 'week' | 'month';
     period_start: string;
     period_end: string;
     slots: any[];
@@ -46,12 +46,14 @@ export function DvmfDashboardContent({
   const [activeTab, setActiveTab] = useState<'requests' | 'pets' | 'events' | 'registrants' | 'registry' | 'appointments' | 'calendar' | 'pricing'>('requests');
 
   return (
-    <div>
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
+      <aside className="bg-white rounded-xl border border-gray-200 p-2 h-fit lg:sticky lg:top-24">
+        <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Operations Menu</p>
+        <div className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
         <button
           onClick={() => setActiveTab('requests')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'requests' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`w-full flex items-center justify-start gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            activeTab === 'requests' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -66,8 +68,8 @@ export function DvmfDashboardContent({
         </button>
         <button
           onClick={() => setActiveTab('pets')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'pets' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`w-full flex items-center justify-start gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            activeTab === 'pets' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -77,8 +79,8 @@ export function DvmfDashboardContent({
         </button>
         <button
           onClick={() => setActiveTab('events')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'events' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`w-full flex items-center justify-start gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            activeTab === 'events' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -88,8 +90,8 @@ export function DvmfDashboardContent({
         </button>
         <button
           onClick={() => setActiveTab('registrants')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'registrants' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`w-full flex items-center justify-start gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            activeTab === 'registrants' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -99,8 +101,8 @@ export function DvmfDashboardContent({
         </button>
         <button
           onClick={() => setActiveTab('registry')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'registry' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`w-full flex items-center justify-start gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            activeTab === 'registry' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -110,8 +112,8 @@ export function DvmfDashboardContent({
         </button>
         <button
           onClick={() => setActiveTab('appointments')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'appointments' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`w-full flex items-center justify-start gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            activeTab === 'appointments' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -126,8 +128,8 @@ export function DvmfDashboardContent({
         </button>
         <button
           onClick={() => setActiveTab('calendar')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'calendar' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`w-full flex items-center justify-start gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            activeTab === 'calendar' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -137,8 +139,8 @@ export function DvmfDashboardContent({
         </button>
         <button
           onClick={() => setActiveTab('pricing')}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-            activeTab === 'pricing' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          className={`w-full flex items-center justify-start gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+            activeTab === 'pricing' ? 'bg-gray-100 text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -146,8 +148,10 @@ export function DvmfDashboardContent({
           </svg>
           Service Pricing
         </button>
-      </div>
+        </div>
+      </aside>
 
+      <section>
       {activeTab === 'requests' ? (
         allRequests.length > 0 ? (
           <AdoptionRequestsList requests={allRequests} />
@@ -204,6 +208,7 @@ export function DvmfDashboardContent({
       ) : (
         <DvmfRegistryTab initialRecords={records} />
       )}
+      </section>
     </div>
   );
 }

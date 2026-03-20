@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { sendHealthcarePaymentReceiptEmail } from '@/lib/server/utils/healthcare-receipt-email';
 
 export type HealthcareServiceType = 'spay_neuter' | 'vaccination' | 'deworming';
 export type HealthcareAppointmentStatus =
@@ -9,18 +10,21 @@ export type HealthcareAppointmentStatus =
   | 'completed'
   | 'cancelled';
 
-export type HealthcareCalendarView = 'week' | 'month' | 'year';
+export type HealthcareCalendarView = 'day' | 'week' | 'month';
 
 export type CreateHealthcareAppointmentRequestInput = {
   dvmf_id: string;
   pet_id: string;
   service_id: string;
-  slot_id?: string;
+  preferred_date: string;
+  preferred_time: string;
   reason?: string;
   requester_notes?: string;
 };
 
 export type ReviewHealthcareAppointmentDecision = 'approve' | 'reject';
+
+export type ManageHealthcareAppointmentDecision = 'mark_paid' | 'mark_completed' | 'mark_cancelled';
 
 export type CreateHealthcareSlotInput = {
   service_id: string;
@@ -82,7 +86,7 @@ function getDefaultOperatingHours(): BranchOperatingHours {
       is_open: day !== 'sunday',
       open_time: '08:00',
       close_time: day === 'saturday' ? '14:00' : '17:00',
-      capacity_per_slot: 1,
+      capacity_per_slot: 3,
     };
     return acc;
   }, {} as BranchOperatingHours['days']);
@@ -128,27 +132,6 @@ function normalizeOperatingHours(raw: unknown): BranchOperatingHours {
   };
 }
 
-function parseTimeToMinutes(timeValue: string) {
-  const [hoursPart, minutesPart] = timeValue.split(':');
-  const hours = Number(hoursPart);
-  const minutes = Number(minutesPart);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return null;
-  }
-  return hours * 60 + minutes;
-}
-
-function minutesToTimeString(totalMinutes: number) {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
-
-function dayNameFromDate(dateString: string) {
-  const date = new Date(`${dateString}T00:00:00+08:00`);
-  return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Asia/Manila' }).toLowerCase();
-}
-
 async function getCurrentUserWithRole() {
   const supabase = await createClient();
   const {
@@ -182,8 +165,7 @@ export async function getHealthcareServicesService(dvmfId?: string) {
       .from('dvmf_healthcare_services')
       .select(`
         *,
-        dvmf:users!dvmf_healthcare_services_dvmf_id_fkey(id, username, avatar_url),
-        branch:organization_profiles!organization_profiles_user_id_fkey(user_id, organization_name, phone, city, state, verification_status, operating_hours)
+        dvmf:users!dvmf_healthcare_services_dvmf_id_fkey(id, username, avatar_url)
       `)
       .eq('is_active', true)
       .order('service_name', { ascending: true });
@@ -205,8 +187,15 @@ export async function getHealthcareServicesService(dvmfId?: string) {
 
 export async function getHealthcareEligiblePetsService() {
   try {
-    const supabase = await createClient();
-    const db = supabase as any;
+    const auth = await getCurrentUserWithRole();
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
+    }
+
+    const { db, user } = auth;
+    if (!['adopter', 'volunteer', 'regular_user'].includes(user.role)) {
+      return { success: true, data: [] };
+    }
 
     const { data, error } = await db
       .from('pets')
@@ -219,7 +208,7 @@ export async function getHealthcareEligiblePetsService() {
         post:posts(media_urls),
         owner:users!pets_owner_id_fkey(id, username, avatar_url)
       `)
-      .not('owner_id', 'is', null)
+      .eq('owner_id', user.id)
       .order('created_at', { ascending: false })
       .limit(120);
 
@@ -376,7 +365,8 @@ export async function getAvailableHealthcareSlotsService(
 ) {
   try {
     if (options?.serviceId && options?.date) {
-      return getBranchAvailabilitySlotsService(dvmfId, options.serviceId, options.date);
+      // DEPRECATED: Slot-based booking replaced with time-based appointment requests
+      return getBranchAvailabilitySlotsService();
     }
 
     const supabase = await createClient();
@@ -424,110 +414,13 @@ export async function getAvailableHealthcareSlotsService(
   }
 }
 
-export async function getBranchAvailabilitySlotsService(
-  dvmfId: string,
-  serviceId: string,
-  date: string
-) {
-  try {
-    const supabase = await createClient();
-    const db = supabase as any;
-
-    const [{ data: branch, error: branchError }, { data: service, error: serviceError }] = await Promise.all([
-      db
-        .from('organization_profiles')
-        .select('user_id, organization_name, operating_hours, verification_status, is_active')
-        .eq('user_id', dvmfId)
-        .eq('organization_type', 'dvmf')
-        .maybeSingle(),
-      db
-        .from('dvmf_healthcare_services')
-        .select('id, dvmf_id, service_type, service_name, duration_minutes, is_active')
-        .eq('id', serviceId)
-        .maybeSingle(),
-    ]);
-
-    if (branchError || !branch) {
-      return { success: false, error: branchError?.message || 'DVMF branch not found' };
-    }
-
-    if (serviceError || !service || service.dvmf_id !== dvmfId || !service.is_active) {
-      return { success: false, error: serviceError?.message || 'Healthcare service not available for selected branch' };
-    }
-
-    const schedule = normalizeOperatingHours(branch.operating_hours);
-    const dayName = dayNameFromDate(date);
-    const daySchedule = schedule.days[dayName];
-
-    if (!daySchedule || !daySchedule.is_open) {
-      return { success: true, data: [] };
-    }
-
-    const openMinutes = parseTimeToMinutes(daySchedule.open_time);
-    const closeMinutes = parseTimeToMinutes(daySchedule.close_time);
-    const durationMinutes = Number(service.duration_minutes || schedule.slot_minutes || 60);
-    const capacityPerSlot = Number(daySchedule.capacity_per_slot || 1);
-
-    if (openMinutes === null || closeMinutes === null || closeMinutes <= openMinutes || durationMinutes <= 0) {
-      return { success: false, error: 'Invalid branch operating hours configuration' };
-    }
-
-    const inserts: Array<Record<string, unknown>> = [];
-    let cursor = openMinutes;
-    while (cursor + durationMinutes <= closeMinutes) {
-      const startTime = minutesToTimeString(cursor);
-      const endTime = minutesToTimeString(cursor + durationMinutes);
-      inserts.push({
-        dvmf_id: dvmfId,
-        service_id: serviceId,
-        slot_start: `${date}T${startTime}:00+08:00`,
-        slot_end: `${date}T${endTime}:00+08:00`,
-        capacity: capacityPerSlot,
-        approved_bookings_count: 0,
-        is_active: true,
-        created_by: dvmfId,
-      });
-      cursor += durationMinutes;
-    }
-
-    if (inserts.length > 0) {
-      await db
-        .from('dvmf_healthcare_slots')
-        .upsert(inserts, { onConflict: 'dvmf_id,service_id,slot_start,slot_end' });
-    }
-
-    const dayStart = `${date}T00:00:00+08:00`;
-    const dayEnd = `${date}T23:59:59+08:00`;
-
-    const { data: slots, error: slotsError } = await db
-      .from('dvmf_healthcare_slots')
-      .select(`
-        *,
-        service:dvmf_healthcare_services(id, service_type, service_name, duration_minutes),
-        appointments:healthcare_appointment_requests(id, status)
-      `)
-      .eq('dvmf_id', dvmfId)
-      .eq('service_id', serviceId)
-      .eq('is_active', true)
-      .gte('slot_start', dayStart)
-      .lte('slot_start', dayEnd)
-      .order('slot_start', { ascending: true });
-
-    if (slotsError) {
-      return { success: false, error: slotsError.message };
-    }
-
-    const available = (slots || []).filter((slot: any) => {
-      const approved = Number(slot.approved_bookings_count || 0);
-      const pending = (slot.appointments || []).filter((appointment: any) => appointment.status === 'pending_approval').length;
-      const occupied = approved + pending;
-      return occupied < Number(slot.capacity || 0);
-    });
-
-    return { success: true, data: available };
-  } catch {
-    return { success: false, error: 'Failed to compute branch availability slots' };
-  }
+export async function getBranchAvailabilitySlotsService() {
+  // DEPRECATED: Slot-based booking has been replaced with time-based appointment requests
+  // Users now specify preferred_date and preferred_time directly
+  return {
+    success: false,
+    error: 'Slot-based booking is deprecated. Use the new appointment request flow with preferred time selection.',
+  };
 }
 
 export async function getDvmfHealthcareServicesForOwnerService() {
@@ -682,34 +575,38 @@ export async function createHealthcareAppointmentRequestService(
       return { success: false, error: 'Selected pet is not eligible for healthcare scheduling' };
     }
 
-    let slotId: string | null = null;
-    if (input.slot_id) {
-      const { data: slot, error: slotError } = await db
-        .from('dvmf_healthcare_slots')
-        .select('id, dvmf_id, service_id, is_active, capacity, approved_bookings_count')
-        .eq('id', input.slot_id)
-        .single();
+    if (pet.owner_id !== user.id) {
+      return { success: false, error: 'You can only request healthcare for your own pets' };
+    }
 
-      if (slotError || !slot) {
-        return { success: false, error: 'Selected slot was not found' };
-      }
+    // Validate date and time format
+    if (!input.preferred_date || !input.preferred_time) {
+      return { success: false, error: 'Preferred date and time are required' };
+    }
 
-      if (!slot.is_active || slot.dvmf_id !== input.dvmf_id || slot.service_id !== input.service_id) {
-        return { success: false, error: 'Selected slot does not match the appointment details' };
-      }
+    // Validate date format (YYYY-MM-DD)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(input.preferred_date)) {
+      return { success: false, error: 'Invalid date format. Use YYYY-MM-DD' };
+    }
 
-      const capacity = Number(slot.capacity || 0);
-      const booked = Number(slot.approved_bookings_count || 0);
-      if (booked >= capacity) {
-        return { success: false, error: 'Selected slot is already full' };
-      }
+    // Validate time format (HH:MM)
+    const timeRegex = /^\d{2}:\d{2}$/;
+    if (!timeRegex.test(input.preferred_time)) {
+      return { success: false, error: 'Invalid time format. Use HH:MM' };
+    }
 
-      slotId = slot.id;
+    // Validate date is not in the past
+    const preferredDateTime = new Date(`${input.preferred_date}T${input.preferred_time}`);
+    const now = new Date();
+    if (preferredDateTime < now) {
+      return { success: false, error: 'Preferred date and time cannot be in the past' };
     }
 
     const serviceBaseFee = Number(service.base_fee || 0);
     const platformFee = service.is_paid ? resolvePlatformServiceFee() : 0;
     const totalFee = service.is_paid ? serviceBaseFee + platformFee : 0;
+    const paymentRequired = totalFee > 0;
 
     const { data: created, error: createError } = await db
       .from('healthcare_appointment_requests')
@@ -718,14 +615,16 @@ export async function createHealthcareAppointmentRequestService(
         dvmf_id: input.dvmf_id,
         pet_id: input.pet_id,
         service_id: input.service_id,
-        slot_id: slotId,
+        preferred_date: input.preferred_date,
+        preferred_time: input.preferred_time,
+        slot_id: null,
         reason: input.reason || null,
         requester_notes: input.requester_notes || null,
         status: 'pending_approval',
         service_base_fee: serviceBaseFee,
         platform_service_fee: platformFee,
         total_fee: totalFee,
-        payment_required: Boolean(service.is_paid),
+        payment_required: paymentRequired,
       })
       .select('*')
       .single();
@@ -753,6 +652,7 @@ export async function getMyHealthcareAppointmentRequestsService() {
       .select(`
         *,
         service:dvmf_healthcare_services(id, service_type, service_name, is_paid, base_fee),
+        pet:pets(id, name, species, breed, owner_id),
         slot:dvmf_healthcare_slots(id, slot_start, slot_end, capacity),
         dvmf:users!healthcare_appointment_requests_dvmf_id_fkey(id, username, avatar_url)
       `)
@@ -828,7 +728,7 @@ export async function reviewHealthcareAppointmentRequestService(
 
     const { data: request, error: requestError } = await db
       .from('healthcare_appointment_requests')
-      .select('id, dvmf_id, status, slot_id, payment_required')
+      .select('id, dvmf_id, status, slot_id, payment_required, total_fee')
       .eq('id', requestId)
       .single();
 
@@ -860,9 +760,10 @@ export async function reviewHealthcareAppointmentRequestService(
       }
     }
 
+    const requiresPayment = Boolean(request.payment_required) && Number(request.total_fee || 0) > 0;
     const nextStatus =
       decision === 'approve'
-        ? request.payment_required
+        ? requiresPayment
           ? 'approved_pending_payment'
           : 'paid_scheduled'
         : 'rejected';
@@ -888,6 +789,129 @@ export async function reviewHealthcareAppointmentRequestService(
     return { success: true, data: updated };
   } catch {
     return { success: false, error: 'Failed to review appointment request' };
+  }
+}
+
+export async function manageHealthcareAppointmentStatusService(
+  requestId: string,
+  decision: ManageHealthcareAppointmentDecision,
+  cancellationReason?: string
+) {
+  try {
+    const auth = await getCurrentUserWithRole();
+    if ('error' in auth) {
+      return { success: false, error: auth.error };
+    }
+
+    const { db, user } = auth;
+    if (user.role !== 'dvmf') {
+      return { success: false, error: 'Only DVMF accounts can manage appointment status' };
+    }
+
+    const { data: request, error: requestError } = await db
+      .from('healthcare_appointment_requests')
+      .select('id, dvmf_id, status, payment_required, total_fee, review_notes')
+      .eq('id', requestId)
+      .single();
+
+    if (requestError || !request) {
+      return { success: false, error: 'Appointment request not found' };
+    }
+
+    if (request.dvmf_id !== user.id) {
+      return { success: false, error: 'You cannot modify this appointment request' };
+    }
+
+    const nowIso = new Date().toISOString();
+    const updates: Record<string, unknown> = {
+      reviewed_by: user.id,
+      reviewed_at: nowIso,
+    };
+
+    if (decision === 'mark_paid') {
+      if (request.status !== 'approved_pending_payment') {
+        return { success: false, error: 'Only approved requests awaiting payment can be marked as paid' };
+      }
+
+      const requiresPayment = Boolean(request.payment_required) && Number(request.total_fee || 0) > 0;
+      if (!requiresPayment) {
+        return { success: false, error: 'This request does not require payment' };
+      }
+
+      updates.status = 'paid_scheduled';
+      updates.paid_at = nowIso;
+    } else if (decision === 'mark_completed') {
+      if (request.status !== 'paid_scheduled') {
+        return { success: false, error: 'Only paid and scheduled requests can be marked as completed' };
+      }
+
+      updates.status = 'completed';
+      updates.completed_at = nowIso;
+    } else {
+      if (request.status !== 'paid_scheduled') {
+        return { success: false, error: 'Only paid and scheduled requests can be cancelled' };
+      }
+
+      const trimmedReason = String(cancellationReason || '').trim();
+      if (!trimmedReason) {
+        return { success: false, error: 'Cancellation reason is required' };
+      }
+
+      updates.status = 'cancelled';
+      updates.cancelled_at = nowIso;
+      updates.review_notes = trimmedReason;
+    }
+
+    const { data: updated, error: updateError } = await db
+      .from('healthcare_appointment_requests')
+      .update(updates)
+      .eq('id', requestId)
+      .select('*')
+      .single();
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    if (decision === 'mark_paid') {
+      const { data: details } = await db
+        .from('healthcare_appointment_requests')
+        .select(`
+          id,
+          total_fee,
+          service_base_fee,
+          platform_service_fee,
+          paid_at,
+          service:dvmf_healthcare_services(service_name),
+          pet:pets(name),
+          requester:users!healthcare_appointment_requests_requester_id_fkey(email, username)
+        `)
+        .eq('id', requestId)
+        .maybeSingle();
+
+      const recipientEmail = details?.requester?.email || null;
+      if (recipientEmail) {
+        const receiptResult = await sendHealthcarePaymentReceiptEmail({
+          recipientEmail,
+          recipientName: details?.requester?.username || 'Pet Owner',
+          appointmentRequestId: requestId,
+          serviceName: details?.service?.service_name || 'Healthcare Service',
+          petName: details?.pet?.name || 'Pet',
+          amountTotal: Number(details?.total_fee || 0),
+          amountService: Number(details?.service_base_fee || 0),
+          amountPlatformFee: Number(details?.platform_service_fee || 0),
+          paidAtIso: details?.paid_at || nowIso,
+        });
+
+        if (!receiptResult.success) {
+          console.error('Healthcare payment receipt email failed:', receiptResult.error);
+        }
+      }
+    }
+
+    return { success: true, data: updated };
+  } catch {
+    return { success: false, error: 'Failed to update appointment status' };
   }
 }
 
@@ -969,7 +993,11 @@ export async function getDvmfHealthcareCalendarService(
     let rangeStart = new Date(reference);
     let rangeEnd = new Date(reference);
 
-    if (view === 'week') {
+    if (view === 'day') {
+      rangeStart.setUTCHours(0, 0, 0, 0);
+      rangeEnd = new Date(rangeStart);
+      rangeEnd.setUTCDate(rangeStart.getUTCDate() + 1);
+    } else if (view === 'week') {
       rangeStart.setUTCDate(reference.getUTCDate() + offsetToMonday);
       rangeStart.setUTCHours(0, 0, 0, 0);
       rangeEnd = new Date(rangeStart);
@@ -977,26 +1005,73 @@ export async function getDvmfHealthcareCalendarService(
     } else if (view === 'month') {
       rangeStart = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth(), 1, 0, 0, 0));
       rangeEnd = new Date(Date.UTC(reference.getUTCFullYear(), reference.getUTCMonth() + 1, 1, 0, 0, 0));
-    } else {
-      rangeStart = new Date(Date.UTC(reference.getUTCFullYear(), 0, 1, 0, 0, 0));
-      rangeEnd = new Date(Date.UTC(reference.getUTCFullYear() + 1, 0, 1, 0, 0, 0));
     }
 
-    const { data: slots, error: slotsError } = await db
-      .from('dvmf_healthcare_slots')
+    // Query appointments directly instead of pre-generated slots
+    const rangeStartDate = rangeStart.toISOString().split('T')[0];
+    const rangeEndDate = rangeEnd.toISOString().split('T')[0];
+
+    const { data: appointments, error: appointmentsError } = await db
+      .from('healthcare_appointment_requests')
       .select(`
         *,
-        service:dvmf_healthcare_services(id, service_type, service_name, is_paid),
-        appointments:healthcare_appointment_requests(id, status, requester_id, pet_id, slot_id)
+        service:dvmf_healthcare_services(id, service_type, service_name, is_paid, duration_minutes),
+        requester:users!healthcare_appointment_requests_requester_id_fkey(id, username, avatar_url),
+        pet:pets(id, name, species)
       `)
       .eq('dvmf_id', user.id)
-      .gte('slot_start', rangeStart.toISOString())
-      .lt('slot_start', rangeEnd.toISOString())
-      .order('slot_start', { ascending: true });
+      .gte('preferred_date', rangeStartDate)
+      .lt('preferred_date', rangeEndDate)
+      .in('status', ['pending_approval', 'approved_pending_payment', 'paid_scheduled', 'completed'])
+      .order('preferred_date', { ascending: true })
+      .order('preferred_time', { ascending: true });
 
-    if (slotsError) {
-      return { success: false, error: slotsError.message };
+    if (appointmentsError) {
+      return { success: false, error: appointmentsError.message };
     }
+
+    // Group appointments by date and time to calculate occupancy
+    type AppointmentsByDateAndTime = { [key: string]: any[] };
+    const appointmentsByDateAndTime: AppointmentsByDateAndTime = {};
+    
+    for (const appointment of appointments || []) {
+      const key = `${appointment.preferred_date}T${appointment.preferred_time}`;
+      if (!appointmentsByDateAndTime[key]) {
+        appointmentsByDateAndTime[key] = [];
+      }
+      appointmentsByDateAndTime[key].push(appointment);
+    }
+
+    // Default capacity per time slot (can be tuned)
+    const DEFAULT_CAPACITY = 3;
+
+    // Transform into slot-like structure for calendar display
+    const slots = Object.entries(appointmentsByDateAndTime).map(([dateTime, appts]) => {
+      const [date, time] = dateTime.split('T');
+      const pendingCount = appts.filter(a => a.status === 'pending_approval').length;
+      const approvedCount = appts.filter(a => a.status === 'approved_pending_payment').length;
+      const paidCount = appts.filter(a => a.status === 'paid_scheduled').length;
+      const completedCount = appts.filter(a => a.status === 'completed').length;
+      const occupiedCount = pendingCount + approvedCount + paidCount + completedCount;
+      const utilization = Math.min(1, occupiedCount / DEFAULT_CAPACITY);
+
+      return {
+        id: `${date}T${time}`,
+        dvmf_id: user.id,
+        slot_start: `${date}T${time}:00Z`,
+        slot_end: `${date}T${time}:00Z`,
+        preferred_date: date,
+        preferred_time: time,
+        capacity: DEFAULT_CAPACITY,
+        occupied_count: occupiedCount,
+        pending_count: pendingCount,
+        approved_count: approvedCount,
+        paid_count: paidCount,
+        completed_count: completedCount,
+        utilization,
+        appointments: appts,
+      };
+    });
 
     return {
       success: true,
@@ -1004,7 +1079,7 @@ export async function getDvmfHealthcareCalendarService(
         view,
         period_start: rangeStart.toISOString(),
         period_end: rangeEnd.toISOString(),
-        slots: slots || [],
+        slots,
       },
     };
   } catch {

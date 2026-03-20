@@ -103,7 +103,8 @@ export type ApiActionArgsByDomain = {
         dvmf_id: string;
         pet_id: string;
         service_id: string;
-        slot_id?: string;
+        preferred_date: string;
+        preferred_time: string;
         reason?: string;
         requester_notes?: string;
       }
@@ -121,6 +122,11 @@ export type ApiActionArgsByDomain = {
       }?
     ];
     reviewHealthcareAppointmentRequest: [string, 'approve' | 'reject', string?];
+    manageHealthcareAppointmentStatus: [
+      string,
+      'mark_paid' | 'mark_completed' | 'mark_cancelled',
+      string?
+    ];
     createHealthcareSlot: [
       {
         service_id: string;
@@ -131,7 +137,7 @@ export type ApiActionArgsByDomain = {
       }
     ];
     getDvmfHealthcareCalendarWeek: [string?];
-    getDvmfHealthcareCalendar: ['week' | 'month' | 'year', string?];
+    getDvmfHealthcareCalendar: ['day' | 'week' | 'month', string?];
     getDvmfHealthcareServicesForOwner: [];
     saveDvmfHealthcareService: [
       {
@@ -172,6 +178,7 @@ export type ApiActionArgsByDomain = {
       }
     ];
     initiateMayaCheckout: [string];
+    syncMayaPaymentStatus: [string, { assumePaidOnSuccessReturn?: boolean }?];
   };
   explore: {
     getExplorePets: UnknownArgs;

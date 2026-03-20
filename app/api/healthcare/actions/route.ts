@@ -12,6 +12,8 @@ import {
   getHealthcareEligiblePets,
   getHealthcareServices,
   initiateMayaCheckout,
+  manageHealthcareAppointmentStatus,
+  syncMayaPaymentStatus,
   getMyHealthcareAppointmentRequests,
   removeDvmfHealthcareService,
   reviewHealthcareAppointmentRequest,
@@ -30,6 +32,7 @@ export const POST = createActionRoute({
   getMyHealthcareAppointmentRequests,
   getDvmfHealthcareAppointmentRequests,
   reviewHealthcareAppointmentRequest,
+  manageHealthcareAppointmentStatus,
   createHealthcareSlot,
   getDvmfHealthcareCalendarWeek,
   getDvmfHealthcareCalendar,
@@ -39,4 +42,5 @@ export const POST = createActionRoute({
   getDvmfBranchProfile,
   updateDvmfBranchProfile,
   initiateMayaCheckout,
+  syncMayaPaymentStatus,
 });

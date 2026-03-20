@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition, type FormEvent } from 'react';
+import { useMemo, useState, useTransition, type FormEvent } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 
 interface HealthcareBookingCardProps {
@@ -16,14 +16,6 @@ const money = new Intl.NumberFormat('en-PH', {
   maximumFractionDigits: 2,
 });
 
-const dateTimeFormatter = new Intl.DateTimeFormat('en-PH', {
-  month: 'short',
-  day: 'numeric',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-});
-
 export function HealthcareBookingCard({ initialBranches, initialServices, initialPets, canAddPet = false }: HealthcareBookingCardProps) {
   const [branches] = useState<any[]>(initialBranches || []);
   const [services] = useState<any[]>(initialServices || []);
@@ -31,9 +23,8 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
   const [selectedPetId, setSelectedPetId] = useState('');
-  const [selectedSlotId, setSelectedSlotId] = useState('');
-  const [slots, setSlots] = useState<any[]>([]);
   const [reason, setReason] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -43,37 +34,19 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
   const [addPetError, setAddPetError] = useState<string | null>(null);
   const [isAddingPet, startAddPetTransition] = useTransition();
 
-  const servicesForBranch = useMemo(
-    () => services.filter((service) => service.is_active !== false && service.dvmf_id === selectedBranchId),
-    [services, selectedBranchId]
-  );
+  const servicesForBranch = useMemo(() => {
+    const resolveServiceBranchId = (service: any) =>
+      service?.dvmf_id || service?.dvmf?.id || service?.branch?.user_id || null;
+
+    return services
+      .filter((service) => service.is_active !== false && resolveServiceBranchId(service) === selectedBranchId)
+      .sort((a, b) => String(a.service_name || '').localeCompare(String(b.service_name || '')));
+  }, [services, selectedBranchId]);
 
   const selectedService = useMemo(
     () => services.find((service) => service.id === selectedServiceId) || null,
     [services, selectedServiceId]
   );
-
-  useEffect(() => {
-    if (!selectedBranchId || !selectedService || !selectedDate) {
-      setSlots([]);
-      setSelectedSlotId('');
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await callApiAction<any>('healthcare', 'getBranchAvailabilitySlots', [selectedBranchId, selectedService.id, selectedDate]);
-
-      if (!result.success || result.error) {
-        setError(result.error || 'Failed to load available healthcare slots');
-        setSlots([]);
-        return;
-      }
-
-      setError(null);
-      setSlots(result.data || []);
-      setSelectedSlotId('');
-    });
-  }, [selectedBranchId, selectedService, selectedDate]);
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -95,8 +68,13 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
       return;
     }
 
+    if (!selectedTime) {
+      setError('Please choose a preferred time.');
+      return;
+    }
+
     if (!selectedPetId) {
-      setError('Please select an adopter-owned pet.');
+      setError('Please select your pet.');
       return;
     }
 
@@ -106,7 +84,8 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
           dvmf_id: selectedService.dvmf_id,
           pet_id: selectedPetId,
           service_id: selectedService.id,
-          slot_id: selectedSlotId || undefined,
+          preferred_date: selectedDate,
+          preferred_time: selectedTime,
           reason: reason || undefined,
           requester_notes: notes || undefined,
         },
@@ -121,7 +100,7 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
       setReason('');
       setNotes('');
       setSelectedDate('');
-      setSelectedSlotId('');
+      setSelectedTime('');
       setTimeout(() => setSuccess(null), 3500);
     });
   };
@@ -201,7 +180,7 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5">
       <h3 className="text-sm font-semibold text-gray-900 mb-1">Book DVMF Healthcare Service</h3>
-      <p className="text-xs text-gray-500 mb-4">Select an adopter-owned pet, service, and slot. DVMF approval is required before confirmation.</p>
+      <p className="text-xs text-gray-500 mb-4">Select your pet, service, and slot. DVMF approval is required before confirmation.</p>
 
       {error ? (
         <div className="mb-3 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-xs">{error}</div>
@@ -220,8 +199,7 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
               setSelectedBranchId(event.target.value);
               setSelectedServiceId('');
               setSelectedDate('');
-              setSelectedSlotId('');
-              setSlots([]);
+              setSelectedTime('');
             }}
             disabled={isPending}
           >
@@ -243,8 +221,7 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
             onChange={(event) => {
               setSelectedServiceId(event.target.value);
               setSelectedDate('');
-              setSelectedSlotId('');
-              setSlots([]);
+              setSelectedTime('');
             }}
             disabled={isPending || !selectedBranchId}
           >
@@ -267,16 +244,30 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
             value={selectedDate}
             onChange={(event) => {
               setSelectedDate(event.target.value);
-              setSelectedSlotId('');
+              setSelectedTime('');
             }}
             disabled={isPending || !selectedService}
           />
-          <p className="mt-1 text-[11px] text-gray-500">Time options are generated from branch opening hours and existing bookings.</p>
+          <p className="mt-1 text-[11px] text-gray-500">Select your preferred date within the next 30 days.</p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1">Preferred Time</label>
+          <input
+            type="time"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+            min="08:00"
+            max="17:00"
+            value={selectedTime}
+            onChange={(event) => setSelectedTime(event.target.value)}
+            disabled={isPending || !selectedService || !selectedDate}
+          />
+          <p className="mt-1 text-[11px] text-gray-500">Operating hours: 8:00 AM to 5:00 PM. DVMF will review your requested time.</p>
         </div>
 
         <div>
           <div className="mb-1 flex items-center justify-between gap-2">
-            <label className="block text-xs font-medium text-gray-700">Adopter-Owned Pet</label>
+            <label className="block text-xs font-medium text-gray-700">Your Pet</label>
             {canAddPet ? (
               <button
                 type="button"
@@ -299,30 +290,10 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
             <option value="">Select a pet</option>
             {pets.map((pet) => (
               <option key={pet.id} value={pet.id}>
-                {pet.name} ({pet.species}) - owner: {pet.owner?.username || 'Unknown'}
+                {pet.name} ({pet.species})
               </option>
             ))}
           </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Preferred Slot</label>
-          <select
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-            value={selectedSlotId}
-            onChange={(event) => setSelectedSlotId(event.target.value)}
-            disabled={isPending || !selectedService || !selectedDate}
-          >
-            <option value="">Choose slot (optional)</option>
-            {slots.map((slot) => (
-              <option key={slot.id} value={slot.id}>
-                {dateTimeFormatter.format(new Date(slot.slot_start))} ({slot.approved_bookings_count}/{slot.capacity} booked)
-              </option>
-            ))}
-          </select>
-          {selectedService && selectedDate && slots.length === 0 ? (
-            <p className="mt-1 text-[11px] text-amber-700">No available time slots for this date. Try another date.</p>
-          ) : null}
         </div>
 
         <div>

@@ -37,7 +37,7 @@ export default async function DvmfOperationsPage() {
     getShelterPets(user.id),
     getAdoptionRequests(user.id),
     getDvmfHealthcareAppointmentRequests(),
-    getDvmfHealthcareCalendar('week'),
+    getDvmfHealthcareCalendar('day'),
     getDvmfHealthcareServicesForOwner(),
   ]);
 

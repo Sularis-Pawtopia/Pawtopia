@@ -12,6 +12,7 @@ import {
   MapPin,
   BookOpen,
   ShoppingBag,
+  Stethoscope,
   BarChart3,
   ClipboardList,
   Settings,
@@ -65,8 +66,13 @@ export function Sidebar({ user }: SidebarProps) {
         ...baseNavigation,
       ];
     }
+    const healthcareNav = ['adopter', 'volunteer', 'regular_user'].includes(user?.role)
+      ? [{ name: 'Healthcare', href: '/healthcare', icon: Stethoscope }]
+      : [];
+
     return [
       { name: 'Feed', href: '/dashboard', icon: Home },
+      ...healthcareNav,
       ...baseNavigation,
     ];
   }, [user?.role]);

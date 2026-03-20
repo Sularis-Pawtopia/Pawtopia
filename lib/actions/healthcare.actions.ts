@@ -15,6 +15,7 @@ import {
   getHealthcareEligiblePetsService,
   getHealthcareServicesService,
   getMyHealthcareAppointmentRequestsService,
+  manageHealthcareAppointmentStatusService,
   removeDvmfHealthcareServiceService,
   reviewHealthcareAppointmentRequestService,
   updateDvmfBranchProfileService,
@@ -24,11 +25,13 @@ import {
   type HealthcareCalendarView,
   type HealthcareAppointmentStatus,
   type HealthcareServiceType,
+  type ManageHealthcareAppointmentDecision,
   type ReviewHealthcareAppointmentDecision,
   type UpsertHealthcareServiceInput,
   type UpdateDvmfBranchProfileInput,
 } from '@/lib/server/services/healthcare.service';
 import { initiateMayaCheckoutService } from '@/lib/server/services/healthcare-payment.service';
+import { syncMayaPaymentStatusService } from '@/lib/server/services/healthcare-payment.service';
 
 export async function getHealthcareServices(dvmfId?: string) {
   return getHealthcareServicesService(dvmfId);
@@ -49,8 +52,9 @@ export async function getAvailableHealthcareSlots(
   return getAvailableHealthcareSlotsService(dvmfId, options);
 }
 
-export async function getBranchAvailabilitySlots(dvmfId: string, serviceId: string, date: string) {
-  return getBranchAvailabilitySlotsService(dvmfId, serviceId, date);
+export async function getBranchAvailabilitySlots(_dvmfId: string, _serviceId: string, _date: string) {
+  // DEPRECATED: Use the new time-based appointment request flow instead
+  return getBranchAvailabilitySlotsService();
 }
 
 export async function createHealthcareAppointmentRequest(
@@ -80,6 +84,19 @@ export async function reviewHealthcareAppointmentRequest(
   reviewNotes?: string
 ) {
   const result = await reviewHealthcareAppointmentRequestService(requestId, decision, reviewNotes);
+  if (result.success) {
+    revalidatePath('/dvmf/operations');
+    revalidatePath('/dashboard');
+  }
+  return result;
+}
+
+export async function manageHealthcareAppointmentStatus(
+  requestId: string,
+  decision: ManageHealthcareAppointmentDecision,
+  cancellationReason?: string
+) {
+  const result = await manageHealthcareAppointmentStatusService(requestId, decision, cancellationReason);
   if (result.success) {
     revalidatePath('/dvmf/operations');
     revalidatePath('/dashboard');
@@ -144,6 +161,19 @@ export async function initiateMayaCheckout(appointmentRequestId: string) {
   if (result.success) {
     revalidatePath('/dashboard');
     revalidatePath('/dvmf/operations');
+  }
+  return result;
+}
+
+export async function syncMayaPaymentStatus(
+  appointmentRequestId: string,
+  options?: { assumePaidOnSuccessReturn?: boolean }
+) {
+  const result = await syncMayaPaymentStatusService(appointmentRequestId, options);
+  if (result.success) {
+    revalidatePath('/dashboard');
+    revalidatePath('/dvmf/operations');
+    revalidatePath('/healthcare');
   }
   return result;
 }

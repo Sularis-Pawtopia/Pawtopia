@@ -117,6 +117,34 @@ export function HealthcareServicePricing({ services }: HealthcareServicePricingP
     });
   };
 
+  const activateService = (service: any) => {
+    setError(null);
+    setSuccess(null);
+
+    startTransition(async () => {
+      const result = await callApiAction<any>('healthcare', 'saveDvmfHealthcareService', [
+        {
+          id: service.id,
+          service_name: String(service.service_name || '').trim(),
+          description: String(service.description || '').trim(),
+          is_paid: Boolean(service.is_paid),
+          base_fee: Number(service.base_fee || 0),
+          duration_minutes: Math.max(15, Number(service.duration_minutes || 60)),
+          is_active: true,
+        },
+      ]);
+
+      if (!result.success || result.error || !result.data) {
+        setError(result.error || 'Failed to activate service');
+        return;
+      }
+
+      setRows((current) => current.map((row) => (row.id === service.id ? { ...row, ...result.data } : row)));
+      setSuccess('Service activated.');
+      setTimeout(() => setSuccess(null), 2500);
+    });
+  };
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -187,7 +215,11 @@ export function HealthcareServicePricing({ services }: HealthcareServicePricingP
                       <button type="button" disabled={isPending} onClick={() => deactivateService(service.id)} className="px-2.5 py-1 rounded-lg border border-red-300 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-60">
                         Deactivate
                       </button>
-                    ) : null}
+                    ) : (
+                      <button type="button" disabled={isPending} onClick={() => activateService(service)} className="px-2.5 py-1 rounded-lg border border-emerald-300 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-60">
+                        Activate
+                      </button>
+                    )}
                   </div>
                 </td>
               </tr>

@@ -269,7 +269,11 @@ export async function completeAdoption(
   // Update pet status
   await supabase
     .from('pets')
-    .update({ status: 'adopted' })
+    .update({
+      status: 'adopted',
+      owner_id: request.adopter_id,
+      is_for_adoption: false,
+    })
     .eq('id', request.pet_id);
 
   // Reject other pending requests for this pet

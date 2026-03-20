@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { verifyMayaSignature } from '@/lib/server/utils/maya-crypto';
+import { sendHealthcarePaymentReceiptEmail } from '@/lib/server/utils/healthcare-receipt-email';
 
 type CheckoutResult = {
   checkout_url: string;
@@ -27,8 +28,13 @@ function resolveFrontendBaseUrl() {
   return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 }
 
+function isRequestReferenceNumber(value?: string | null) {
+  if (!value) return false;
+  return /^hc-[a-f0-9]{8}-\d+$/i.test(String(value));
+}
+
 function extractCheckoutId(payload: any) {
-  return payload?.checkoutId || payload?.id || payload?.referenceNumber || payload?.requestReferenceNumber || null;
+  return payload?.checkoutId || payload?.id || payload?.referenceNumber || payload?.resource?.id || payload?.data?.checkoutId || payload?.data?.id || null;
 }
 
 function extractCheckoutUrl(payload: any) {
@@ -38,7 +44,7 @@ function extractCheckoutUrl(payload: any) {
 function mapWebhookStatus(rawStatus: string | null | undefined) {
   const status = String(rawStatus || '').toLowerCase();
 
-  if (['paid', 'payment_success', 'success', 'completed'].includes(status)) {
+  if (['paid', 'payment_success', 'payment_successful', 'success', 'completed', 'executed', 'captured', 'authorized'].includes(status)) {
     return 'paid' as const;
   }
 
@@ -55,6 +61,73 @@ function mapWebhookStatus(rawStatus: string | null | undefined) {
   }
 
   return 'pending' as const;
+}
+
+function mapMayaCheckoutStatus(payload: any) {
+  return mapWebhookStatus(
+    payload?.status ||
+    payload?.paymentStatus ||
+    payload?.state ||
+    payload?.event ||
+    payload?.resultStatus ||
+    payload?.payments?.[0]?.status ||
+    payload?.data?.status ||
+    payload?.result?.status
+  );
+}
+
+function extractCheckoutIdFromUrl(url?: string | null) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.searchParams.get('id') || null;
+  } catch {
+    return null;
+  }
+}
+
+function extractAppointmentPrefixFromRequestReference(requestReferenceNumber?: string | null) {
+  if (!requestReferenceNumber) return null;
+  const match = String(requestReferenceNumber).match(/^hc-([a-f0-9]{8})-/i);
+  return match?.[1]?.toLowerCase() || null;
+}
+
+async function fetchMayaCheckoutStatus(checkoutId: string) {
+  const credentials = resolveMayaCredentials();
+  if ('error' in credentials) {
+    return { success: false as const, error: credentials.error };
+  }
+
+  const authorization = Buffer.from(`${credentials.apiKey}:${credentials.secretKey}`).toString('base64');
+  const response = await fetch(`${normalizeMayaBaseUrl()}/checkout/v1/checkouts/${checkoutId}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Basic ${authorization}`,
+      'Content-Type': 'application/json',
+    },
+    cache: 'no-store',
+  });
+
+  const text = await response.text();
+  let payload: any = null;
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    payload = { raw: text };
+  }
+
+  if (!response.ok) {
+    return {
+      success: false as const,
+      error: payload?.message || 'Failed to fetch Maya checkout status',
+    };
+  }
+
+  return {
+    success: true as const,
+    payload,
+    status: mapMayaCheckoutStatus(payload),
+  };
 }
 
 async function getCurrentUserWithRole() {
@@ -137,9 +210,9 @@ export async function initiateMayaCheckoutService(
       },
       requestReferenceNumber,
       redirectUrl: {
-        success: `${frontendBase}/dashboard?healthcarePayment=success&appointmentId=${appointment.id}`,
-        failure: `${frontendBase}/dashboard?healthcarePayment=failure&appointmentId=${appointment.id}`,
-        cancel: `${frontendBase}/dashboard?healthcarePayment=cancelled&appointmentId=${appointment.id}`,
+        success: `${frontendBase}/healthcare?healthcarePayment=success&appointmentId=${appointment.id}`,
+        failure: `${frontendBase}/healthcare?healthcarePayment=failure&appointmentId=${appointment.id}`,
+        cancel: `${frontendBase}/healthcare?healthcarePayment=cancelled&appointmentId=${appointment.id}`,
       },
       metadata: {
         appointment_request_id: appointment.id,
@@ -189,8 +262,11 @@ export async function initiateMayaCheckoutService(
       return { success: false, error: responsePayload?.message || 'Failed to initialize Maya checkout session' };
     }
 
-    const checkoutId = extractCheckoutId(responsePayload);
+    const checkoutIdRaw = extractCheckoutId(responsePayload);
     const checkoutUrl = extractCheckoutUrl(responsePayload);
+    const checkoutId = !isRequestReferenceNumber(checkoutIdRaw)
+      ? checkoutIdRaw
+      : extractCheckoutIdFromUrl(checkoutUrl);
 
     if (!checkoutId || !checkoutUrl) {
       return { success: false, error: 'Maya response missing checkout reference or URL' };
@@ -210,7 +286,10 @@ export async function initiateMayaCheckoutService(
           amount_platform_fee: platformFee,
           amount_total: total,
           status: 'pending',
-          provider_payload: payload,
+          provider_payload: {
+            ...payload,
+            maya_checkout_id: checkoutId,
+          },
         },
         { onConflict: 'appointment_request_id' }
       )
@@ -254,7 +333,12 @@ export async function processMayaWebhookService(rawBody: string, signature: stri
   const providerReference =
     payload?.id ||
     payload?.checkoutId ||
+    payload?.referenceNumber ||
     payload?.transactionId ||
+    payload?.resource?.id ||
+    payload?.resource?.checkoutId ||
+    payload?.result?.id ||
+    payload?.result?.checkoutId ||
     payload?.data?.id ||
     payload?.data?.checkoutId ||
     payload?.data?.transactionId ||
@@ -263,8 +347,16 @@ export async function processMayaWebhookService(rawBody: string, signature: stri
 
   const appointmentId =
     payload?.metadata?.appointment_request_id ||
+    payload?.resource?.metadata?.appointment_request_id ||
+    payload?.result?.metadata?.appointment_request_id ||
     payload?.data?.metadata?.appointment_request_id ||
+    null;
+
+  const requestReferenceNumber =
     payload?.requestReferenceNumber ||
+    payload?.data?.requestReferenceNumber ||
+    payload?.resource?.requestReferenceNumber ||
+    payload?.result?.requestReferenceNumber ||
     null;
 
   if (!providerReference && !appointmentId) {
@@ -297,6 +389,51 @@ export async function processMayaWebhookService(rawBody: string, signature: stri
     transaction = fallback.data || null;
   }
 
+  if (!transaction && requestReferenceNumber) {
+    const fallback = await admin
+      .from('healthcare_payment_transactions')
+      .select('id, appointment_request_id, status, provider_reference, provider_payload')
+      .order('created_at', { ascending: false })
+      .limit(25);
+
+    if (!fallback.error && Array.isArray(fallback.data)) {
+      transaction =
+        fallback.data.find(
+          (row: any) =>
+            String(row?.provider_payload?.requestReferenceNumber || '') === String(requestReferenceNumber)
+        ) || null;
+    }
+  }
+
+  let derivedAppointmentIdFromReference: string | null = null;
+  if (!transaction && requestReferenceNumber) {
+    const prefix = extractAppointmentPrefixFromRequestReference(requestReferenceNumber);
+    if (prefix) {
+      const apptLookup = await admin
+        .from('healthcare_appointment_requests')
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(80);
+
+      if (!apptLookup.error && Array.isArray(apptLookup.data)) {
+        const matched = apptLookup.data.find((row: any) => String(row?.id || '').toLowerCase().startsWith(prefix));
+        derivedAppointmentIdFromReference = matched?.id || null;
+      }
+
+      if (derivedAppointmentIdFromReference) {
+        const txLookup = await admin
+          .from('healthcare_payment_transactions')
+          .select('id, appointment_request_id, status, provider_reference')
+          .eq('appointment_request_id', derivedAppointmentIdFromReference)
+          .maybeSingle();
+
+        if (!txLookup.error && txLookup.data) {
+          transaction = txLookup.data;
+        }
+      }
+    }
+  }
+
   if (transaction?.status === 'paid' && mappedStatus === 'paid') {
     return { success: true, statusCode: 200, data: { already_processed: true } };
   }
@@ -326,7 +463,7 @@ export async function processMayaWebhookService(rawBody: string, signature: stri
     }
   }
 
-  const appointmentRequestId = transaction?.appointment_request_id || appointmentId;
+  const appointmentRequestId = transaction?.appointment_request_id || appointmentId || derivedAppointmentIdFromReference;
   if (mappedStatus === 'paid' && appointmentRequestId) {
     const { error: appointmentError } = await admin
       .from('healthcare_appointment_requests')
@@ -335,10 +472,45 @@ export async function processMayaWebhookService(rawBody: string, signature: stri
         paid_at: paidAt,
       })
       .eq('id', appointmentRequestId)
-      .eq('status', 'approved_pending_payment');
+      .in('status', ['approved_pending_payment', 'paid_scheduled']);
 
     if (appointmentError) {
       return { success: false, statusCode: 500, error: appointmentError.message };
+    }
+
+    const { data: appointmentDetails } = await admin
+      .from('healthcare_appointment_requests')
+      .select(`
+        id,
+        requester_id,
+        total_fee,
+        service_base_fee,
+        platform_service_fee,
+        paid_at,
+        service:dvmf_healthcare_services(service_name),
+        pet:pets(name),
+        requester:users!healthcare_appointment_requests_requester_id_fkey(email, username)
+      `)
+      .eq('id', appointmentRequestId)
+      .maybeSingle();
+
+    const recipientEmail = appointmentDetails?.requester?.email || null;
+    if (recipientEmail) {
+      const receiptResult = await sendHealthcarePaymentReceiptEmail({
+        recipientEmail,
+        recipientName: appointmentDetails?.requester?.username || 'Pet Owner',
+        appointmentRequestId,
+        serviceName: appointmentDetails?.service?.service_name || 'Healthcare Service',
+        petName: appointmentDetails?.pet?.name || 'Pet',
+        amountTotal: Number(appointmentDetails?.total_fee || 0),
+        amountService: Number(appointmentDetails?.service_base_fee || 0),
+        amountPlatformFee: Number(appointmentDetails?.platform_service_fee || 0),
+        paidAtIso: appointmentDetails?.paid_at || paidAt || new Date().toISOString(),
+      });
+
+      if (!receiptResult.success) {
+        console.error('Healthcare payment receipt email failed:', receiptResult.error);
+      }
     }
   }
 
@@ -351,4 +523,167 @@ export async function processMayaWebhookService(rawBody: string, signature: stri
       payment_status: mappedStatus,
     },
   };
+}
+
+export async function syncMayaPaymentStatusService(
+  appointmentRequestId: string,
+  options?: { assumePaidOnSuccessReturn?: boolean }
+): Promise<{ success: true; data: any } | { success: false; error: string }> {
+  try {
+    const auth = await getCurrentUserWithRole();
+    if ('error' in auth) {
+      return { success: false, error: auth.error || 'Not authenticated' };
+    }
+
+    const { db, user } = auth;
+    const admin = createAdminClient() as any;
+
+    const { data: appointment, error: appointmentError } = await db
+      .from('healthcare_appointment_requests')
+      .select('id, requester_id, dvmf_id, status')
+      .eq('id', appointmentRequestId)
+      .single();
+
+    if (appointmentError || !appointment) {
+      return { success: false, error: 'Appointment request not found' };
+    }
+
+    const isAuthorized = appointment.requester_id === user.id || appointment.dvmf_id === user.id || user.role === 'admin';
+    if (!isAuthorized) {
+      return { success: false, error: 'Not authorized to sync this appointment payment' };
+    }
+
+    const { data: transaction, error: transactionError } = await admin
+      .from('healthcare_payment_transactions')
+      .select('id, provider_reference, provider_checkout_url, provider_payload, status, paid_at, amount_service, amount_platform_fee, amount_total')
+      .eq('appointment_request_id', appointmentRequestId)
+      .maybeSingle();
+
+    if (transactionError) {
+      return { success: false, error: transactionError.message };
+    }
+
+    const checkoutReferenceCandidates = [
+      transaction?.provider_reference && !isRequestReferenceNumber(transaction.provider_reference)
+        ? transaction.provider_reference
+        : null,
+      extractCheckoutIdFromUrl(transaction?.provider_checkout_url),
+      transaction?.provider_payload?.maya_checkout_id,
+      transaction?.provider_payload?.checkoutId,
+      transaction?.provider_payload?.checkout_id,
+      transaction?.provider_payload?.id,
+    ];
+
+    const checkoutReference = checkoutReferenceCandidates.find((candidate) => Boolean(candidate)) || null;
+
+    let mappedStatus: 'paid' | 'pending' | 'failed' | 'cancelled' | 'refunded' = 'pending';
+    let mayaPayload: any = null;
+
+    if (!checkoutReference) {
+      if (!options?.assumePaidOnSuccessReturn) {
+        return { success: true, data: { synced: false, reason: 'No Maya checkout reference yet' } };
+      }
+
+      mappedStatus = 'paid';
+      mayaPayload = {
+        source: 'redirect_success_fallback',
+        note: 'Marked as paid from successful return redirect without checkout status lookup.',
+      };
+    } else {
+      const mayaStatus = await fetchMayaCheckoutStatus(checkoutReference);
+      if (!mayaStatus.success) {
+        if (!options?.assumePaidOnSuccessReturn) {
+          return { success: false, error: mayaStatus.error };
+        }
+
+        mappedStatus = 'paid';
+        mayaPayload = {
+          source: 'redirect_success_fallback',
+          note: 'Marked as paid from successful return redirect because Maya checkout status lookup failed.',
+          checkout_reference: checkoutReference,
+        };
+      } else {
+        mappedStatus = mayaStatus.status;
+        mayaPayload = mayaStatus.payload;
+      }
+    }
+
+    const paidAt = mappedStatus === 'paid' ? new Date().toISOString() : null;
+
+    const { error: txUpdateError } = await admin
+      .from('healthcare_payment_transactions')
+      .update({
+        status: mappedStatus,
+        provider_callback_payload: mayaPayload,
+        paid_at: mappedStatus === 'paid' ? paidAt : transaction.paid_at,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', transaction.id);
+
+    if (txUpdateError) {
+      return { success: false, error: txUpdateError.message };
+    }
+
+    if (mappedStatus === 'paid') {
+      const { error: appointmentUpdateError } = await admin
+        .from('healthcare_appointment_requests')
+        .update({
+          status: 'paid_scheduled',
+          paid_at: paidAt,
+        })
+        .eq('id', appointmentRequestId)
+        .in('status', ['approved_pending_payment', 'paid_scheduled']);
+
+      if (appointmentUpdateError) {
+        return { success: false, error: appointmentUpdateError.message };
+      }
+
+      if (transaction.status !== 'paid') {
+        const { data: appointmentDetails } = await admin
+          .from('healthcare_appointment_requests')
+          .select(`
+            id,
+            total_fee,
+            service_base_fee,
+            platform_service_fee,
+            paid_at,
+            service:dvmf_healthcare_services(service_name),
+            pet:pets(name),
+            requester:users!healthcare_appointment_requests_requester_id_fkey(email, username)
+          `)
+          .eq('id', appointmentRequestId)
+          .maybeSingle();
+
+        const recipientEmail = appointmentDetails?.requester?.email || null;
+        if (recipientEmail) {
+          const receiptResult = await sendHealthcarePaymentReceiptEmail({
+            recipientEmail,
+            recipientName: appointmentDetails?.requester?.username || 'Pet Owner',
+            appointmentRequestId,
+            serviceName: appointmentDetails?.service?.service_name || 'Healthcare Service',
+            petName: appointmentDetails?.pet?.name || 'Pet',
+            amountTotal: Number(appointmentDetails?.total_fee || 0),
+            amountService: Number(appointmentDetails?.service_base_fee || 0),
+            amountPlatformFee: Number(appointmentDetails?.platform_service_fee || 0),
+            paidAtIso: appointmentDetails?.paid_at || paidAt || new Date().toISOString(),
+          });
+
+          if (!receiptResult.success) {
+            console.error('Healthcare payment receipt email failed:', receiptResult.error);
+          }
+        }
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        synced: true,
+        appointment_request_id: appointmentRequestId,
+        payment_status: mappedStatus,
+      },
+    };
+  } catch {
+    return { success: false, error: 'Failed to sync Maya payment status' };
+  }
 }

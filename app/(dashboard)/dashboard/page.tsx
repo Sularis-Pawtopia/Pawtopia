@@ -7,17 +7,19 @@ import { FeedList } from '@/components/feed/FeedList';
 import { CreatePostButton } from '@/components/feed/CreatePostButton';
 import { SuggestedShelters } from '@/components/SuggestedShelters';
 import { MyAdoptionRequests } from '@/components/pets/MyAdoptionRequests';
-import { HealthcareBookingCard } from '@/components/healthcare/HealthcareBookingCard';
-import { MyHealthcareAppointments } from '@/components/healthcare/MyHealthcareAppointments';
 import {
-  getDvmfHealthcareBranches,
-  getHealthcareEligiblePets,
-  getHealthcareServices,
-  getMyHealthcareAppointmentRequests,
+  syncMayaPaymentStatus,
 } from '@/lib/actions/healthcare.actions';
 import Link from 'next/link';
 
-export default async function DashboardPage() {
+type DashboardPageProps = {
+  searchParams?: {
+    healthcarePayment?: string;
+    appointmentId?: string;
+  };
+};
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const user = await getCurrentUser();
   
   if (!user) {
@@ -32,20 +34,21 @@ export default async function DashboardPage() {
   const isPendingShelter = user.role === 'shelter' && !user.is_verified;
   const canUseHealthcareRequesterFlow = ['adopter', 'volunteer', 'regular_user'].includes(user.role);
 
-  const [{ data: initialPosts }, adoptionResult, healthcareRequestsResult, healthcareBranchesResult, healthcareServicesResult, healthcarePetsResult] = await Promise.all([
+  if (
+    canUseHealthcareRequesterFlow &&
+    searchParams?.healthcarePayment === 'success' &&
+    typeof searchParams?.appointmentId === 'string' &&
+    searchParams.appointmentId.length > 0
+  ) {
+    await syncMayaPaymentStatus(searchParams.appointmentId, { assumePaidOnSuccessReturn: true });
+  }
+
+  const [{ data: initialPosts }, adoptionResult] = await Promise.all([
     getFeedPosts({ limit: 10 }),
     user.role === 'adopter' ? getUserAdoptionRequests(user.id) : Promise.resolve({ data: [] }),
-    canUseHealthcareRequesterFlow ? getMyHealthcareAppointmentRequests() : Promise.resolve({ success: true, data: [] }),
-    canUseHealthcareRequesterFlow ? getDvmfHealthcareBranches() : Promise.resolve({ success: true, data: [] }),
-    canUseHealthcareRequesterFlow ? getHealthcareServices() : Promise.resolve({ success: true, data: [] }),
-    canUseHealthcareRequesterFlow ? getHealthcareEligiblePets() : Promise.resolve({ success: true, data: [] }),
   ]);
 
   const adoptionRequests = adoptionResult.data || [];
-  const healthcareRequests = (healthcareRequestsResult.success ? healthcareRequestsResult.data : []) || [];
-  const healthcareBranches = (healthcareBranchesResult.success ? healthcareBranchesResult.data : []) || [];
-  const healthcareServices = (healthcareServicesResult.success ? healthcareServicesResult.data : []) || [];
-  const healthcarePets = (healthcarePetsResult.success ? healthcarePetsResult.data : []) || [];
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -107,10 +110,19 @@ export default async function DashboardPage() {
                 )}
 
                 {canUseHealthcareRequesterFlow && (
-                  <>
-                    <HealthcareBookingCard initialBranches={healthcareBranches} initialServices={healthcareServices} initialPets={healthcarePets} canAddPet={user.role === 'adopter'} />
-                    <MyHealthcareAppointments initialRequests={healthcareRequests} />
-                  </>
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Healthcare Desk</p>
+                    <h3 className="mt-1 text-lg font-semibold text-gray-900">Book and Manage Pet Healthcare</h3>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Request DVMF services from the dedicated healthcare page with a cleaner booking flow and payment tracking.
+                    </p>
+                    <Link
+                      href="/healthcare"
+                      className="inline-flex mt-4 items-center px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600"
+                    >
+                      Open Healthcare Page
+                    </Link>
+                  </div>
                 )}
 
                 {/* Verification Status Tracker for pending shelters */}

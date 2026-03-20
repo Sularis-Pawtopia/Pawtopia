@@ -44,6 +44,7 @@ export async function createPet(
       description: formData.description,
       media_urls: mediaUrls,
       tags: formData.tags || [],
+      is_active: true,
     })
     .select()
     .single();
@@ -68,6 +69,7 @@ export async function createPet(
       color: formData.color,
       weight: formData.weight,
       status: 'available',
+      is_for_adoption: true,
       is_vaccinated: formData.is_vaccinated,
       is_spayed_neutered: formData.is_spayed_neutered,
       medical_history: formData.medical_history,
@@ -239,7 +241,7 @@ export async function getAvailablePets(filters?: {
     .from('pets')
     .select(`
       *,
-      post:posts(*),
+      post:posts!inner(*),
       shelter:users!pets_shelter_id_fkey(
         id,
         username,
@@ -253,6 +255,11 @@ export async function getAvailablePets(filters?: {
       )
     `, { count: 'exact' })
     .eq('status', 'available')
+    .eq('is_for_adoption', true)
+    .is('owner_id', null)
+    .not('shelter_id', 'is', null)
+    .eq('post.post_type', 'adoptable')
+    .eq('post.is_active', true)
     .order('created_at', { ascending: false });
 
   // Apply filters
@@ -308,7 +315,7 @@ export async function searchPets(searchTerm: string) {
     .from('pets')
     .select(`
       *,
-      post:posts(*),
+      post:posts!inner(*),
       shelter:users!pets_shelter_id_fkey(
         id,
         username,
@@ -318,6 +325,11 @@ export async function searchPets(searchTerm: string) {
       )
     `)
     .eq('status', 'available')
+    .eq('is_for_adoption', true)
+    .is('owner_id', null)
+    .not('shelter_id', 'is', null)
+    .eq('post.post_type', 'adoptable')
+    .eq('post.is_active', true)
     .or(`name.ilike.%${searchTerm}%,breed.ilike.%${searchTerm}%,species.ilike.%${searchTerm}%`)
     .limit(20);
 
@@ -341,15 +353,15 @@ export async function createAdopterPet(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Not authenticated' };
 
-  // Verify adopter role
+  // Verify requester role for personal pets
   const { data: userData } = await supabase
     .from('users')
     .select('role')
     .eq('id', user.id)
     .single();
 
-  if (!userData || userData.role !== 'adopter') {
-    return { error: 'Only adopters can add personal pets' };
+  if (!userData || !['adopter', 'volunteer', 'regular_user'].includes(userData.role)) {
+    return { error: 'Only adopter, volunteer, or regular user accounts can add personal pets' };
   }
 
   // 1. Create post 
@@ -362,6 +374,8 @@ export async function createAdopterPet(
       description: formData.description,
       media_urls: mediaUrls,
       tags: formData.tags || [],
+      // Personal pets must stay private and should not appear in the public feed.
+      is_active: false,
     })
     .select()
     .single();
@@ -386,6 +400,7 @@ export async function createAdopterPet(
       color: formData.color,
       weight: formData.weight,
       status: 'adopted' as const, // personal pet — not up for adoption
+      is_for_adoption: false,
       is_vaccinated: formData.is_vaccinated,
       is_spayed_neutered: formData.is_spayed_neutered,
       medical_history: formData.medical_history,

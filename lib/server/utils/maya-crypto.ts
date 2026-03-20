@@ -16,6 +16,17 @@ export function verifyMayaSignature(payload: string, signature: string | null, s
   const normalized = provided.includes('=') ? provided.split('=').pop() || '' : provided;
   const expected = signMayaPayload(payload, secret);
 
+  // Maya integrations may provide signatures as hex or base64 depending on endpoint/config.
+  const expectedBase64 = Buffer.from(expected, 'utf8').toString('base64');
+
+  const candidates = [normalized, normalized.toLowerCase()];
+  if (candidates.includes(expected) || candidates.includes(expected.toLowerCase())) {
+    return true;
+  }
+  if (candidates.includes(expectedBase64)) {
+    return true;
+  }
+
   const providedBuffer = Buffer.from(normalized, 'utf8');
   const expectedBuffer = Buffer.from(expected, 'utf8');
 

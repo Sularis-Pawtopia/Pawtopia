@@ -7,7 +7,7 @@ import { callApiAction } from '@/lib/api/action-client';
 import { useSidebar } from './SidebarContext';
 import {
   Home, Compass, Heart, Calendar, MapPin, BookOpen, ShoppingBag,
-  Menu, X, Bell, PawPrint, Settings, LogOut, BarChart3, ClipboardList,
+  Menu, X, Bell, PawPrint, Settings, LogOut, BarChart3, ClipboardList, Stethoscope,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -28,6 +28,7 @@ interface NavTab {
 
 const mainNavTabs: NavTab[] = [
   { href: '/dashboard', label: 'Feed', icon: Home },
+  { href: '/healthcare', label: 'Healthcare', icon: Stethoscope },
   { href: '/pets', label: 'Pets', icon: Heart },
   { href: '/explore', label: 'Explore', icon: Compass },
   { href: '/events', label: 'Events', icon: Calendar },
@@ -61,13 +62,17 @@ export function Navbar({ user }: NavbarProps) {
         : [];
 
   const navTabs = useMemo(() => {
+    const roleFilteredMainTabs = ['adopter', 'volunteer', 'regular_user'].includes(user.role)
+      ? mainNavTabs
+      : mainNavTabs.filter((tab) => tab.href !== '/healthcare');
+
     const seen = new Set<string>();
-    return [...roleTabs, ...mainNavTabs].filter((tab) => {
+    return [...roleTabs, ...roleFilteredMainTabs].filter((tab) => {
       if (seen.has(tab.href)) return false;
       seen.add(tab.href);
       return true;
     });
-  }, [roleTabs]);
+  }, [roleTabs, user.role]);
 
   const activeHref = useMemo(() => {
     let bestMatch = '';

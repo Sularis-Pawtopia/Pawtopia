@@ -302,6 +302,7 @@ export interface Database {
           size: string | null
           color: string | null
           weight: number | null
+          is_for_adoption: boolean
           status: 'available' | 'pending' | 'adopted'
           is_vaccinated: boolean
           is_spayed_neutered: boolean
@@ -330,6 +331,7 @@ export interface Database {
           size?: string | null
           color?: string | null
           weight?: number | null
+          is_for_adoption?: boolean
           status?: 'available' | 'pending' | 'adopted'
           is_vaccinated?: boolean
           is_spayed_neutered?: boolean
@@ -358,6 +360,7 @@ export interface Database {
           size?: string | null
           color?: string | null
           weight?: number | null
+          is_for_adoption?: boolean
           status?: 'available' | 'pending' | 'adopted'
           is_vaccinated?: boolean
           is_spayed_neutered?: boolean
