@@ -139,6 +139,7 @@ export function DonationDonorPanel({
       setInKindQuantity('');
       setInKindNotes('');
       setDonationMode(null);
+      setIsSubmitting(false);
     } catch {
       setError('An error occurred while submitting your intent');
       setIsSubmitting(false);
@@ -237,7 +238,7 @@ export function DonationDonorPanel({
               onChange={(e) => setIsAnonymousDonation(e.target.checked)}
               className="rounded border-gray-300"
             />
-            Donate anonymously (organizers will see "Anonymous Donor")
+            Donate anonymously (organizers will see &quot;Anonymous Donor&quot;)
           </label>
 
           <div className="flex gap-2">

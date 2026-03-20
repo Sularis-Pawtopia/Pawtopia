@@ -89,6 +89,7 @@ export function AdminWithdrawalManagementPanel() {
     setReviewNotes('');
     setSelectedWithdrawal(null);
     await loadWithdrawals();
+    setIsSubmitting(false);
   };
 
   const handleReject = async () => {
@@ -114,6 +115,7 @@ export function AdminWithdrawalManagementPanel() {
     setReviewNotes('');
     setSelectedWithdrawal(null);
     await loadWithdrawals();
+    setIsSubmitting(false);
   };
 
   const handleComplete = async () => {
@@ -152,6 +154,7 @@ export function AdminWithdrawalManagementPanel() {
     setActualFee('');
     setSelectedWithdrawal(null);
     await loadWithdrawals();
+    setIsSubmitting(false);
   };
 
   const getStatusBadge = (status: string) => {

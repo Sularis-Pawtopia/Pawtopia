@@ -88,7 +88,7 @@ export default function AdminWithdrawalsPage() {
               <h4 className="font-semibold text-gray-800 mb-2">Approval - Next Steps</h4>
               <ol className="list-decimal list-inside space-y-1">
                 <li>Review withdrawal amount against available balance</li>
-                <li>Verify organizer's billing account details</li>
+                <li>Verify organizer&apos;s billing account details</li>
                 <li>Add approval notes if rejecting (required)</li>
                 <li>Confirm action and update status to approved/rejected</li>
               </ol>
@@ -96,7 +96,7 @@ export default function AdminWithdrawalsPage() {
             <div>
               <h4 className="font-semibold text-gray-800 mb-2">Completion - Next Steps</h4>
               <ol className="list-decimal list-inside space-y-1">
-                <li>Process payout to organizer's account</li>
+                <li>Process payout to organizer&apos;s account</li>
                 <li>Obtain and upload proof of transfer document</li>
                 <li>Record the payout reference number</li>
                 <li>Document actual transfer fee (if applicable)</li>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { callApiAction } from '@/lib/api/action-client';
 
 interface OrganizerBillingAccount {
@@ -99,6 +100,7 @@ export function OrganizerBillingPanel() {
     });
     setShowAddForm(false);
     await loadData();
+    setIsSubmitting(false);
   };
 
   if (loading) {
@@ -262,12 +264,12 @@ export function OrganizerBillingPanel() {
         <div className="bg-green-50 border border-green-200 rounded-xl p-6">
           <h4 className="font-semibold text-green-900 mb-2">Ready to Withdraw?</h4>
           <p className="text-sm text-green-700 mb-4">You have PHP {balance.available_balance.toLocaleString('en-US', { maximumFractionDigits: 2 })} available to request.</p>
-          <a
+          <Link
             href="/dashboard/donations/withdraw"
             className="inline-block px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
           >
             Request Withdrawal
-          </a>
+          </Link>
         </div>
       )}
     </div>

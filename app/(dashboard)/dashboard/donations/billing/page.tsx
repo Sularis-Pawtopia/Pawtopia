@@ -42,7 +42,7 @@ export default function DonationBillingPage() {
             </li>
             <li className="flex items-start">
               <span className="mr-3">4.</span>
-              <span>Request a withdrawal when you're ready to receive funds</span>
+              <span>Request a withdrawal when you&apos;re ready to receive funds</span>
             </li>
             <li className="flex items-start">
               <span className="mr-3">5.</span>

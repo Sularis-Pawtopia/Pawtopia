@@ -849,12 +849,12 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                           PHP {raisedAmount.toLocaleString()} raised of PHP {donationGoal.toLocaleString()} goal
                         </p>
                         <div className="mt-3">
-                          <a
+                          <Link
                             href={`/events/${post.event.id}`}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
                           >
                             Donate
-                          </a>
+                          </Link>
                         </div>
                       </div>
                     );

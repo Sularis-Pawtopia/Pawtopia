@@ -4,6 +4,16 @@
 
 The donation feature has been fully built and integrated into Pawtopia. This document outlines the complete architecture, components, pages, and testing procedures.
 
+## ✅ Post-Implementation Corrections (2026-03-20)
+
+The following corrections were applied after initial rollout:
+
+- **Live raised amount source fixed:** Donation totals shown on feed/event cards now come from `donation_transactions` where `status='paid'` instead of static `raised_php:*` post tags.
+- **Success-return reconciliation added:** `/events/[eventId]` now attempts payment sync when query has `donation=success`, using `tx` first, then `requestRef` fallback.
+- **Anonymous donor support completed:** Monetary checkout supports `is_anonymous`; donor labels are masked for organizer-facing views.
+- **Donor visibility UX added:** Left panel now shows recent donors with censored identities when anonymous.
+- **Card CTA improvement:** Donation drive cards now include a direct `Donate` button.
+
 ## ✅ What Has Been Completed
 
 ### 1. **UI Components** (4 components, 100% complete)
@@ -117,9 +127,14 @@ The donation feature has been fully built and integrated into Pawtopia. This doc
 
 ---
 
-### 3. **Database Schema** (6 tables, 100% complete)
+### 3. **Database Schema** (6 tables + 1 follow-up migration, 100% complete)
 
 All tables created via migration: `supabase/migrations/20260320006000_add_donation_wallet_and_withdrawals.sql`
+
+Follow-up migration: `supabase/migrations/20260320110000_add_donation_anonymous_fields.sql`
+
+- Adds `donor_is_anonymous BOOLEAN NOT NULL DEFAULT FALSE`
+- Adds `donor_display_name TEXT`
 
 #### organizer_billing_accounts
 ```sql
@@ -155,6 +170,7 @@ All tables created via migration: `supabase/migrations/20260320006000_add_donati
 - id (UUID, PK)
 - campaign_id (FK → events)
 - organizer_id, donor_id (FK → users)
+- donor_is_anonymous, donor_display_name
 - amount_gross, processor_fee, transfer_fee
 - amount_net (generated: gross - both fees)
 - currency, status (enum: pending|paid|failed|cancelled|refunded)
@@ -241,6 +257,8 @@ import { DonationDonorPanel } from '@/components/donations/DonationDonorPanel'
 ```
 
 **Result:** Donation drive events now show donation panel instead of registration panel
+
+**Additional behavior:** Successful Maya returns trigger donation status sync on page load (similar to healthcare flow) to avoid stale `pending` state in local webhook-challenged environments.
 
 ---
 

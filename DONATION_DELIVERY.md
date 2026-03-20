@@ -1,5 +1,27 @@
 # 🎉 Donation Feature - Final Delivery Summary
 
+## 📌 Handoff Addendum (2026-03-20)
+
+To prevent confusion during maintenance, note these post-delivery fixes:
+
+- Raised amount display now uses live paid transactions (`donation_transactions.status='paid'`) rather than static post tags.
+- Event success return (`donation=success`) now performs server-side sync using `tx` and `requestRef` fallback.
+- Anonymous donor flow completed end-to-end:
+  - Donor checkbox in checkout form
+  - DB fields `donor_is_anonymous` and `donor_display_name`
+  - Organizer views show `Anonymous Donor` when opted
+- Donation event cards include an in-card `Donate` button.
+- Left donation panel now includes recent donor list with censorship rules applied.
+
+### Key Files For Debugging Future Donation Display Issues
+
+- `lib/actions/post.actions.ts` (injects live donation totals into post event payload)
+- `components/feed/FeedList.tsx` (renders raised amount and donate CTA)
+- `app/events/[eventId]/page.tsx` (success-return payment reconciliation)
+- `lib/server/services/donation.service.ts` (webhook + sync + donor list + anonymization)
+- `components/donations/DonationDonorPanel.tsx` (anonymous option + donor list rendering)
+- `supabase/migrations/20260320110000_add_donation_anonymous_fields.sql`
+
 ## ✅ COMPLETED: All Requested Tasks
 
 ### Task 1: Organizer & Admin UI Screens ✅

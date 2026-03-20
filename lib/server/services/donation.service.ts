@@ -1276,6 +1276,7 @@ export async function getDonationCampaignDonorsService(campaignId: string) {
         amount_net,
         amount_gross,
         status,
+        paid_at,
         created_at,
         donor_id,
         donor_is_anonymous,
@@ -1294,7 +1295,7 @@ export async function getDonationCampaignDonorsService(campaignId: string) {
     const donors = (data || []).map((row: any) => ({
       id: row.id,
       amount_php: Number(row.amount_net ?? row.amount_gross ?? 0),
-      donated_at: row.created_at,
+      donated_at: row.paid_at || row.created_at,
       donor_label: row.donor_is_anonymous
         ? 'Anonymous Donor'
         : row.donor_display_name || row.donor?.username || `Donor ${String(row.donor_id || '').slice(0, 8)}`,

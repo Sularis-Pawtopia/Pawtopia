@@ -115,6 +115,7 @@ export function OrganizerWithdrawalPanel({
     setFormData({ billing_account_id: '', amount_requested: '' });
     setShowForm(false);
     await loadWithdrawals();
+    setIsSubmitting(false);
   };
 
   const getStatusColor = (status: string) => {
