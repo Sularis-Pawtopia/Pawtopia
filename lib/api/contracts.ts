@@ -1,6 +1,7 @@
 export type ApiDomain =
   | 'auth'
   | 'adoption'
+  | 'donations'
   | 'dvmf'
   | 'events'
   | 'healthcare'
@@ -74,6 +75,16 @@ export type ApiActionArgsByDomain = {
         is_volunteer_event?: boolean;
         volunteers_needed?: number;
         media_urls?: string[];
+        donation_monetary_enabled?: boolean;
+        donation_in_kind_enabled?: boolean;
+        donation_goal_php?: number;
+        donation_beneficiary?: string;
+        donation_notes?: string;
+        donation_dropoff_place_id?: string;
+        donation_dropoff_address?: string;
+        donation_dropoff_lat?: number;
+        donation_dropoff_lng?: number;
+        donation_dropoff_map_url?: string;
       }
     ];
     rsvpEvent: [string];
@@ -179,6 +190,61 @@ export type ApiActionArgsByDomain = {
     ];
     initiateMayaCheckout: [string];
     syncMayaPaymentStatus: [string, { assumePaidOnSuccessReturn?: boolean }?];
+  };
+  donations: {
+    createDonationCheckout: [
+      {
+        campaign_id: string;
+        amount_php: number;
+        donor_message?: string;
+        is_anonymous?: boolean;
+      }
+    ];
+    syncDonationPaymentStatus: [string, { assumePaidOnSuccessReturn?: boolean }?];
+    syncDonationPaymentStatusByRequestRef: [string, { assumePaidOnSuccessReturn?: boolean }?];
+    getMyDonationTransactions: [];
+    getOrganizerDonationDashboard: [];
+    upsertOrganizerBillingAccount: [
+      {
+        id?: string;
+        account_type: 'bank' | 'e_wallet';
+        provider_name: string;
+        account_name: string;
+        account_number: string;
+        account_metadata?: Record<string, unknown>;
+        is_default?: boolean;
+        is_active?: boolean;
+      }
+    ];
+    getOrganizerBillingAccounts: [];
+    createWithdrawalRequest: [
+      {
+        billing_account_id: string;
+        amount_requested: number;
+      }
+    ];
+    getOrganizerWithdrawalRequests: [];
+    getPendingWithdrawalRequests: [];
+    reviewWithdrawalRequest: [string, 'approve' | 'reject', string?];
+    completeWithdrawalRequest: [
+      {
+        request_id: string;
+        payout_reference: string;
+        proof_urls: string[];
+        actual_transfer_fee?: number;
+      }
+    ];
+    createInKindDonationIntent: [
+      {
+        campaign_id: string;
+        item_summary: string;
+        quantity_label?: string;
+        donor_notes?: string;
+        estimated_dropoff_at?: string;
+      }
+    ];
+    getInKindDonationIntents: [string?];
+    getDonationCampaignDonors: [string];
   };
   explore: {
     getExplorePets: UnknownArgs;

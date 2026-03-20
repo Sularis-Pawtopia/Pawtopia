@@ -21,6 +21,16 @@ export type CreateEventInput = {
   is_volunteer_event?: boolean;
   volunteers_needed?: number;
   media_urls?: string[];
+  donation_monetary_enabled?: boolean;
+  donation_in_kind_enabled?: boolean;
+  donation_goal_php?: number;
+  donation_beneficiary?: string;
+  donation_notes?: string;
+  donation_dropoff_place_id?: string;
+  donation_dropoff_address?: string;
+  donation_dropoff_lat?: number;
+  donation_dropoff_lng?: number;
+  donation_dropoff_map_url?: string;
 };
 
 type RegistrationStatus = 'pending' | 'registered' | 'waitlisted' | 'cancelled';
@@ -207,6 +217,25 @@ export async function createEventService(formData: CreateEventInput) {
         participant_approval_mode: formData.participant_approval_mode || 'auto',
         is_volunteer_event: formData.is_volunteer_event || false,
         volunteers_needed: formData.volunteers_needed || 0,
+        donation_monetary_enabled:
+          formData.event_type === 'donation_drive' ? formData.donation_monetary_enabled !== false : false,
+        donation_in_kind_enabled:
+          formData.event_type === 'donation_drive' ? Boolean(formData.donation_in_kind_enabled) : false,
+        donation_goal_php:
+          formData.event_type === 'donation_drive' ? formData.donation_goal_php || null : null,
+        donation_beneficiary:
+          formData.event_type === 'donation_drive' ? formData.donation_beneficiary || null : null,
+        donation_notes: formData.event_type === 'donation_drive' ? formData.donation_notes || null : null,
+        donation_dropoff_place_id:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_place_id || null : null,
+        donation_dropoff_address:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_address || null : null,
+        donation_dropoff_lat:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_lat || null : null,
+        donation_dropoff_lng:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_lng || null : null,
+        donation_dropoff_map_url:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_map_url || null : null,
       } as any)
       .select()
       .single();

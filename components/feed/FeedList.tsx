@@ -816,16 +816,16 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                 {/* Event Details */}
                 {post.event && (() => {
                   const isDonationDrive = String(post.event.event_type || '').toLowerCase() === 'donation_drive';
+                  const donationEvent = post.event as any;
                   const tagList = Array.isArray(post.tags) ? post.tags : [];
-                  const goalTag = tagList.find((tag) => tag.startsWith('goal_php:'));
-                  const raisedTag = tagList.find((tag) => tag.startsWith('raised_php:'));
                   const beneficiaryTag = tagList.find((tag) => tag.startsWith('beneficiary:'));
-                  const paymentTag = tagList.find((tag) => tag.startsWith('payment_method:'));
 
-                  const donationGoal = Number(goalTag?.split(':')[1] || 0);
-                  const raisedAmount = Number(raisedTag?.split(':')[1] || 0);
-                  const beneficiary = beneficiaryTag?.split(':').slice(1).join(':') || 'Community beneficiaries';
-                  const paymentMethod = paymentTag?.split(':')[1] || 'gcash';
+                  const donationGoal = Number(donationEvent.donation_goal_php || 0);
+                  const raisedAmount = Number(donationEvent.donation_raised_php || 0);
+                  const beneficiary =
+                    donationEvent.donation_beneficiary ||
+                    beneficiaryTag?.split(':').slice(1).join(':') ||
+                    'Community beneficiaries';
                   const percent = donationGoal > 0 ? Math.min(100, Math.round((raisedAmount / donationGoal) * 100)) : 0;
 
                   if (isDonationDrive) {
@@ -841,13 +841,21 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                           })}
                         </p>
                         <p className="text-xs text-amber-800 mt-1">Beneficiary: {beneficiary}</p>
-                        <p className="text-xs text-amber-800 mt-1">Payment: {paymentMethod.toUpperCase()} (static prototype)</p>
+                        <p className="text-xs text-amber-800 mt-1">Live donations reflected from paid transactions</p>
                         <div className="mt-2 h-2 w-full bg-amber-100 rounded-full overflow-hidden">
                           <div className="h-full bg-amber-500 rounded-full" style={{ width: `${percent}%` }} />
                         </div>
                         <p className="text-xs text-amber-700 mt-1">
                           PHP {raisedAmount.toLocaleString()} raised of PHP {donationGoal.toLocaleString()} goal
                         </p>
+                        <div className="mt-3">
+                          <a
+                            href={`/events/${post.event.id}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
+                          >
+                            Donate
+                          </a>
+                        </div>
                       </div>
                     );
                   }

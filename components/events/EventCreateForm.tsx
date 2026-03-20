@@ -40,9 +40,14 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
     beneficiary: '',
     goal_php: '',
     campaign_description: '',
-    payment_method: 'gcash',
-    payment_details: '',
-    donor_note: 'This is a prototype donation drive. Payment processing is not enabled yet.',
+    monetary_enabled: true,
+    in_kind_enabled: true,
+    dropoff_instructions: '',
+    dropoff_location_name: '',
+    dropoff_address: '',
+    dropoff_latitude: '',
+    dropoff_longitude: '',
+    dropoff_map_url: '',
   });
 
   const donationPreview = useMemo(() => {
@@ -132,14 +137,14 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
           event_date: donationForm.campaign_date,
           end_date: donationForm.campaign_end_date || undefined,
           location: donationForm.location || 'Online',
-          description: `${donationForm.campaign_description}\n\nDonation Goal: PHP ${Number(donationForm.goal_php || 0).toLocaleString()}\nRaised So Far: PHP 0 (static placeholder)\nBeneficiary: ${donationForm.beneficiary}\nPayment Method: ${donationForm.payment_method.toUpperCase()}\nPayment Details: ${donationForm.payment_details}\n\n${donationForm.donor_note}`,
+          description: donationForm.campaign_description,
           post_title: donationForm.campaign_name,
           post_tags: [
             'donation_drive',
             `goal_php:${Number(donationForm.goal_php || 0)}`,
-            'raised_php:0',
             `beneficiary:${donationForm.beneficiary}`,
-            `payment_method:${donationForm.payment_method}`,
+            donationForm.monetary_enabled ? 'monetary_enabled' : 'monetary_disabled',
+            donationForm.in_kind_enabled ? 'in_kind_enabled' : 'in_kind_disabled',
           ],
           max_attendees: undefined,
           registration_required: false,
@@ -147,6 +152,16 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
           is_volunteer_event: false,
           volunteers_needed: undefined,
           media_urls: mediaUrls,
+          donation_monetary_enabled: donationForm.monetary_enabled,
+          donation_in_kind_enabled: donationForm.in_kind_enabled,
+          donation_goal_php: donationForm.goal_php ? Number(donationForm.goal_php) : undefined,
+          donation_beneficiary: donationForm.beneficiary,
+          donation_notes: donationForm.dropoff_instructions || undefined,
+          donation_dropoff_place_id: donationForm.dropoff_location_name || undefined,
+          donation_dropoff_address: donationForm.dropoff_address || undefined,
+          donation_dropoff_lat: donationForm.dropoff_latitude ? Number(donationForm.dropoff_latitude) : undefined,
+          donation_dropoff_lng: donationForm.dropoff_longitude ? Number(donationForm.dropoff_longitude) : undefined,
+          donation_dropoff_map_url: donationForm.dropoff_map_url || undefined,
         };
 
       const result = await callApiAction('events', 'createEvent', [payload]);
@@ -359,31 +374,68 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <select
-              value={donationForm.payment_method}
-              onChange={(e) => setDonationForm({ ...donationForm, payment_method: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="gcash">GCash</option>
-              <option value="paymaya">Maya</option>
-              <option value="bank_transfer">Bank Transfer</option>
-              <option value="cash_dropoff">Cash Drop-off</option>
-            </select>
-            <input
-              value={donationForm.payment_details}
-              onChange={(e) => setDonationForm({ ...donationForm, payment_details: e.target.value })}
-              placeholder="Account number / QR note / contact"
-              className="px-3 py-2 border border-gray-300 rounded-lg"
-              required
-            />
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={donationForm.monetary_enabled}
+                onChange={(e) => setDonationForm({ ...donationForm, monetary_enabled: e.target.checked })}
+              />
+              Accept monetary donations
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={donationForm.in_kind_enabled}
+                onChange={(e) => setDonationForm({ ...donationForm, in_kind_enabled: e.target.checked })}
+              />
+              Accept in-kind donations
+            </label>
           </div>
 
-          <textarea
-            value={donationForm.donor_note}
-            onChange={(e) => setDonationForm({ ...donationForm, donor_note: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            rows={2}
-          />
+          {donationForm.in_kind_enabled && (
+            <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <p className="text-sm font-semibold text-gray-900">In-kind Drop-off Details</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input
+                  value={donationForm.dropoff_location_name}
+                  onChange={(e) => setDonationForm({ ...donationForm, dropoff_location_name: e.target.value })}
+                  placeholder="Drop-off place name"
+                  className="px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <input
+                  value={donationForm.dropoff_address}
+                  onChange={(e) => setDonationForm({ ...donationForm, dropoff_address: e.target.value })}
+                  placeholder="Drop-off address"
+                  className="px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <input
+                  value={donationForm.dropoff_latitude}
+                  onChange={(e) => setDonationForm({ ...donationForm, dropoff_latitude: e.target.value })}
+                  placeholder="Latitude (optional)"
+                  className="px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <input
+                  value={donationForm.dropoff_longitude}
+                  onChange={(e) => setDonationForm({ ...donationForm, dropoff_longitude: e.target.value })}
+                  placeholder="Longitude (optional)"
+                  className="px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <input
+                  value={donationForm.dropoff_map_url}
+                  onChange={(e) => setDonationForm({ ...donationForm, dropoff_map_url: e.target.value })}
+                  placeholder="Google Maps URL (optional)"
+                  className="md:col-span-2 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <textarea
+                value={donationForm.dropoff_instructions}
+                onChange={(e) => setDonationForm({ ...donationForm, dropoff_instructions: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                rows={3}
+                placeholder="Drop-off instructions for donors"
+              />
+            </div>
+          )}
 
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <p className="text-sm font-semibold text-gray-900">Campaign Quota Preview</p>
@@ -393,7 +445,9 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
             <p className="mt-2 text-xs text-gray-600">
               PHP {donationPreview.raised.toLocaleString()} raised of PHP {donationPreview.goal.toLocaleString()} goal. Remaining: PHP {donationPreview.remaining.toLocaleString()}.
             </p>
-            <p className="text-xs text-amber-700 mt-1">Payment processing is static for now and shown for UI shaping only.</p>
+            <p className="text-xs text-gray-600 mt-1">
+              Monetary: {donationForm.monetary_enabled ? 'Enabled' : 'Disabled'} | In-kind: {donationForm.in_kind_enabled ? 'Enabled' : 'Disabled'}
+            </p>
           </div>
         </>
       )}
