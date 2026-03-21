@@ -1,70 +1,46 @@
-import { getEvents } from '@/lib/actions/event.actions';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
 import { CreateEventButton } from '@/components/events/CreateEventButton';
 import { getFeedPosts } from '@/lib/actions/post.actions';
-import { FeedList } from '@/components/feed/FeedList';
+import { EventsFeedPanel } from '@/components/events/EventsFeedPanel';
 
 export default async function EventsPage() {
   const user = await getCurrentUser();
-  const [eventsResult, eventPostsResult] = await Promise.all([
-    getEvents(),
-    getFeedPosts({ post_type: 'event' }),
-  ]);
-
-  const events = eventsResult.success ? eventsResult.data : [];
-  const eventPosts = eventPostsResult.data || [];
+  const eventPostsResult = await getFeedPosts({ post_type: 'event' });
+  const eventPosts = (eventPostsResult.data || []).filter((post: any) => !String(post?.event?.event_type || '').toLowerCase().includes('adoption'));
+  const donationCount = eventPosts.filter((post: any) => String(post?.event?.event_type || '').toLowerCase().includes('donation')).length;
+  const regularCount = eventPosts.length - donationCount;
 
   return (
     <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-primary-600 to-secondary-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-12">
-          <div className="flex justify-between items-center">
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <div className="mb-6 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h1 className="text-4xl font-bold mb-2">Community Events</h1>
-              <p className="text-primary-100 text-lg">
-                Join adoption events, fundraisers, and pet community gatherings
+              <h1 className="text-3xl font-bold text-gray-900">Community Events</h1>
+              <p className="mt-1 text-sm text-gray-600">
+                Discover donation campaigns and local gatherings in one place.
               </p>
             </div>
             {['shelter', 'ngo', 'dvmf'].includes(user?.role || '') && <CreateEventButton />}
           </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-3 gap-6 mt-8">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-center">
-              <div className="text-3xl font-bold">{events?.length || 0}</div>
-              <div className="text-primary-100 text-sm">Upcoming Events</div>
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="text-2xl font-bold text-gray-900">{eventPosts.length}</p>
+              <p className="text-xs text-gray-500">Published Events</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-center">
-              <div className="text-3xl font-bold">50+</div>
-              <div className="text-primary-100 text-sm">Shelters Participating</div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="text-2xl font-bold text-gray-900">{regularCount}</p>
+              <p className="text-xs text-gray-500">Regular Events</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-center">
-              <div className="text-3xl font-bold">1,200+</div>
-              <div className="text-primary-100 text-sm">RSVPs This Month</div>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <p className="text-2xl font-bold text-gray-900">{donationCount}</p>
+              <p className="text-xs text-gray-500">Donation Drives</p>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {eventPosts.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <div className="text-6xl mb-4">📅</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No Events Found
-            </h3>
-            <p className="text-gray-600">
-              Check back soon for upcoming adoption events and community gatherings!
-            </p>
-          </div>
-        ) : (
-          <FeedList
-            initialPosts={eventPosts as any}
-            currentUserId={user?.id}
-            userRole={user?.role}
-          />
-        )}
+        <EventsFeedPanel eventPosts={eventPosts as any[]} currentUserId={user?.id} userRole={user?.role} />
       </div>
     </div>
   );

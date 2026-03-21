@@ -3,13 +3,16 @@
 import { useState } from 'react';
 import { DvmfEventsTab } from './DVMFEventsTab';
 import { DvmfRegistryTab } from './DvmfRegistryTab';
+import { QuickRegisterModal } from './QuickRegisterModal';
 import { HealthcareAppointmentRequestsList } from './HealthcareAppointmentRequestsList';
 import { HealthcareCalendarWeek } from './HealthcareCalendarWeek';
 import { HealthcareServicePricing } from './HealthcareServicePricing';
 import { OrganizerEventRegistrantsBoard } from '@/components/events/OrganizerEventRegistrantsBoard';
 import { AdoptionRequestsList } from '@/components/shelter/AdoptionRequestsList';
 import { PetGrid } from '@/components/pets/PetGrid';
+import { PetDetailModal } from '@/components/pets/PetDetailModal';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 interface DvmfDashboardContentProps {
   events: any[];
@@ -43,7 +46,10 @@ export function DvmfDashboardContent({
   isPendingVerification,
   organizerId,
 }: DvmfDashboardContentProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'requests' | 'pets' | 'events' | 'registrants' | 'registry' | 'appointments' | 'calendar' | 'pricing'>('requests');
+  const [selectedDvmfPet, setSelectedDvmfPet] = useState<any | null>(null);
+  const [quickRegisterPet, setQuickRegisterPet] = useState<any | null>(null);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
@@ -184,7 +190,11 @@ export function DvmfDashboardContent({
             )}
           </div>
           {pets.length > 0 ? (
-            <PetGrid pets={pets} isOwner />
+            <PetGrid
+              pets={pets}
+              isOwner
+              onPetClick={(pet) => setSelectedDvmfPet(pet)}
+            />
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
               <div className="text-4xl mb-3">🐾</div>
@@ -207,6 +217,50 @@ export function DvmfDashboardContent({
         <HealthcareServicePricing services={healthcareServices} />
       ) : (
         <DvmfRegistryTab initialRecords={records} />
+      )}
+
+      {selectedDvmfPet && (
+        <PetDetailModal
+          pet={selectedDvmfPet}
+          userRole="dvmf"
+          showAdoptSection={false}
+          onEdit={() => {
+            window.location.href = `/shelter/pets/${selectedDvmfPet.id}/edit`;
+          }}
+          onChangePicture={() => {
+            window.location.href = `/shelter/pets/${selectedDvmfPet.id}/edit`;
+          }}
+          onClose={() => setSelectedDvmfPet(null)}
+          actions={[
+            {
+              label: 'View Post',
+              tone: 'secondary',
+              onClick: () => {
+                window.location.href = `/pets/${selectedDvmfPet.id}`;
+              },
+            },
+            {
+              label: 'Quick Register',
+              tone: 'primary',
+              onClick: () => {
+                setQuickRegisterPet(selectedDvmfPet);
+              },
+            },
+          ]}
+        />
+      )}
+
+      {quickRegisterPet && (
+        <QuickRegisterModal
+          pet={quickRegisterPet}
+          onClose={() => setQuickRegisterPet(null)}
+          onSuccess={() => {
+            setQuickRegisterPet(null);
+            setSelectedDvmfPet(null);
+            setActiveTab('registry');
+            router.refresh();
+          }}
+        />
       )}
       </section>
     </div>

@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 import { useSidebar } from './SidebarContext';
 import {
-  Home, Compass, Heart, Calendar, MapPin, BookOpen, ShoppingBag,
+  Home, Heart, Calendar, MapPin, BookOpen,
   Menu, X, Bell, PawPrint, Settings, LogOut, BarChart3, ClipboardList, Stethoscope,
 } from 'lucide-react';
 
@@ -29,12 +29,10 @@ interface NavTab {
 const mainNavTabs: NavTab[] = [
   { href: '/dashboard', label: 'Feed', icon: Home },
   { href: '/healthcare', label: 'Healthcare', icon: Stethoscope },
-  { href: '/pets', label: 'Pets', icon: Heart },
-  { href: '/explore', label: 'Explore', icon: Compass },
+  { href: '/pets', label: 'Companions', icon: Heart },
   { href: '/events', label: 'Events', icon: Calendar },
   { href: '/lost-pets', label: 'Lost & Found', icon: MapPin },
   { href: '/stories', label: 'Stories', icon: BookOpen },
-  { href: '/store', label: 'Store', icon: ShoppingBag },
 ];
 
 export function Navbar({ user }: NavbarProps) {

@@ -29,7 +29,7 @@ export default async function PetsPage({
               Find Your Perfect Companion
             </h1>
             <p className="text-gray-600">
-              Browse available pets from shelters near you
+              Browse available companions from shelters near you
             </p>
           </div>
 

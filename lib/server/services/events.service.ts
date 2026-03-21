@@ -175,12 +175,19 @@ export async function createEventService(formData: CreateEventInput) {
 
     const { data: profile } = await supabase
       .from('users')
-      .select('role')
+      .select('role, city, state')
       .eq('id', user.id)
       .single();
 
     if (!profile || !['shelter', 'ngo', 'dvmf'].includes(profile.role)) {
       return { success: false, error: 'Only verified organizers can create events' };
+    }
+
+    if (!profile.city && !profile.state) {
+      return {
+        success: false,
+        error: 'Please complete your profile location (city or state) before creating events.',
+      };
     }
 
     const { data: post, error: postError } = await supabase

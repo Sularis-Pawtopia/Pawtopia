@@ -6,7 +6,9 @@ import { ShelterProfileInfo } from './ShelterProfileInfo';
 import { AdopterEditForm } from './AdopterEditForm';
 import { ShelterEditForm } from './ShelterEditForm';
 import AdoptPetModal from './AdoptPetModal';
+import { PetDetailModal } from '@/components/pets/PetDetailModal';
 import { callApiAction } from '@/lib/api/action-client';
+import { createClient } from '@/lib/supabase/client';
 
 interface ProfileContentProps {
   profile: any;
@@ -15,6 +17,7 @@ interface ProfileContentProps {
 export function ProfileContent({ profile }: ProfileContentProps) {
   const isShelter = profile.role === 'shelter';
   const isAdopter = profile.role === 'adopter';
+  const isPersonalPetRole = ['adopter', 'volunteer', 'regular_user'].includes(profile.role);
   const isOwner = profile.isOwner;
   const [activeTab, setActiveTab] = useState('about');
   const [isEditing, setIsEditing] = useState(false);
@@ -44,6 +47,8 @@ export function ProfileContent({ profile }: ProfileContentProps) {
   const [loadingAdopterPets, setLoadingAdopterPets] = useState(false);
   const [loadingPending, setLoadingPending] = useState(false);
   const [showAddPet, setShowAddPet] = useState(false);
+  const [editingPersonalPet, setEditingPersonalPet] = useState<any | null>(null);
+  const [isDeletingPersonalPet, setIsDeletingPersonalPet] = useState(false);
 
   // Selected pending request for modal
   const [selectedPendingReq, setSelectedPendingReq] = useState<any | null>(null);
@@ -107,7 +112,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
 
   // Load data when tab changes (adopter)
   useEffect(() => {
-    if (!isAdopter) return;
+    if (!isPersonalPetRole) return;
 
     if (activeTab === 'my-pets' && adopterPets.length === 0) {
       setLoadingAdopterPets(true);
@@ -117,14 +122,14 @@ export function ProfileContent({ profile }: ProfileContentProps) {
       });
     }
 
-    if (activeTab === 'pending' && pendingRequests.length === 0) {
+    if (isAdopter && activeTab === 'pending' && pendingRequests.length === 0) {
       setLoadingPending(true);
       callApiAction<any[]>('adoption', 'getUserAdoptionRequests', [profile.id]).then((res) => {
         setPendingRequests(res.data || []);
         setLoadingPending(false);
       });
     }
-  }, [activeTab, isAdopter, profile.id, adopterPets.length, pendingRequests.length]);
+  }, [activeTab, isAdopter, isPersonalPetRole, profile.id, adopterPets.length, pendingRequests.length]);
 
   const shelterTabs = [
     { id: 'about', label: 'About', icon: (
@@ -149,7 +154,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
     )},
   ];
 
-  const adopterTabs = [
+  const personalPetTabs = [
     { id: 'about', label: 'About', icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
@@ -160,6 +165,10 @@ export function ProfileContent({ profile }: ProfileContentProps) {
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
       </svg>
     )},
+  ];
+
+  const adopterTabs = [
+    ...personalPetTabs,
     { id: 'pending', label: 'Pending Adoptions', icon: (
       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -167,7 +176,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
     )},
   ];
 
-  const tabs = isShelter ? shelterTabs : adopterTabs;
+  const tabs = isShelter ? shelterTabs : isAdopter ? adopterTabs : personalPetTabs;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
@@ -343,7 +352,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
       )}
 
       {/* My Pets Tab (Adopter) */}
-      {activeTab === 'my-pets' && isAdopter && (
+      {activeTab === 'my-pets' && isPersonalPetRole && (
         <div>
           {isOwner && (
             <div className="flex justify-end mb-4">
@@ -406,11 +415,57 @@ export function ProfileContent({ profile }: ProfileContentProps) {
             </>
           )}
 
-          {selectedPet && (
+          {selectedPet && selectedPet._source !== 'personal' && (
             <AdoptPetModal
               pet={selectedPet}
               viewerRole={profile.viewerRole}
               onClose={() => setSelectedPet(null)}
+            />
+          )}
+
+          {selectedPet && selectedPet._source === 'personal' && (
+            <PetDetailModal
+              pet={selectedPet}
+              userRole={profile.viewerRole || profile.role}
+              showAdoptSection={false}
+              onEdit={() => setEditingPersonalPet(selectedPet)}
+              onChangePicture={() => setEditingPersonalPet(selectedPet)}
+              onClose={() => setSelectedPet(null)}
+              actions={isOwner ? [
+                {
+                  label: 'View Post',
+                  tone: 'secondary',
+                  onClick: () => {
+                    window.location.href = `/pets/${selectedPet.id}`;
+                  },
+                },
+                {
+                  label: isDeletingPersonalPet ? 'Deleting...' : 'Delete Pet',
+                  tone: 'danger',
+                  onClick: async () => {
+                    if (isDeletingPersonalPet) return;
+                    if (!confirm('Delete this pet? This cannot be undone.')) return;
+                    setIsDeletingPersonalPet(true);
+                    const result = await callApiAction<any>('pets', 'deleteAdopterPet', [selectedPet.id]);
+                    setIsDeletingPersonalPet(false);
+                    if (!result.success || result.error) return;
+                    setSelectedPet(null);
+                    setAdopterPets((prev) => prev.filter((pet) => pet.id !== selectedPet.id));
+                  },
+                },
+              ] : []}
+            />
+          )}
+
+          {editingPersonalPet && (
+            <EditAdopterPetForm
+              pet={editingPersonalPet}
+              onClose={() => setEditingPersonalPet(null)}
+              onSaved={(updated) => {
+                setEditingPersonalPet(null);
+                setSelectedPet(updated);
+                setAdopterPets((prev) => prev.map((pet) => (pet.id === updated.id ? { ...pet, ...updated, _source: 'personal' } : pet)));
+              }}
             />
           )}
         </div>
@@ -806,8 +861,105 @@ function AdoptionRequestCard({ request, onClick }: { request: any; onClick?: () 
 }
 
 function AddAdopterPetForm({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const MAX_IMAGES = 5;
+  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [error, setError] = useState('');
+  const [images, setImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const addImages = (files: File[]) => {
+    if (!files.length) return;
+
+    setError('');
+
+    if (images.length + files.length > MAX_IMAGES) {
+      setError(`Maximum ${MAX_IMAGES} images allowed.`);
+      return;
+    }
+
+    const invalidType = files.find((file) => !file.type.startsWith('image/'));
+    if (invalidType) {
+      setError('Only image files are allowed.');
+      return;
+    }
+
+    const oversized = files.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversized) {
+      setError('Each image must be 5MB or smaller.');
+      return;
+    }
+
+    setImages((prev) => [...prev, ...files]);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreviews((prev) => [...prev, (reader.result as string) || '']);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    addImages(files);
+    event.target.value = '';
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(event.dataTransfer.files || []);
+    addImages(files);
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    if (images.length === 0) return [];
+
+    setUploadingImages(true);
+    const supabase = createClient();
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Not authenticated');
+
+      const uploadedUrls: string[] = [];
+
+      for (const image of images) {
+        const safeName = image.name.replace(/\s+/g, '-').toLowerCase();
+        const fileName = `${user.id}/personal-pets/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
+
+        const { data, error: uploadError } = await supabase.storage
+          .from('pet-images')
+          .upload(fileName, image);
+
+        if (uploadError || !data) {
+          throw new Error(uploadError?.message || 'Failed to upload pet image');
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('pet-images').getPublicUrl(data.path);
+
+        uploadedUrls.push(publicUrl);
+      }
+
+      return uploadedUrls;
+    } finally {
+      setUploadingImages(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -838,15 +990,20 @@ function AddAdopterPetForm({ onClose, onSaved }: { onClose: () => void; onSaved:
       tags: [],
     };
 
-    // For now, no image uploads — pass empty array
-    const { createAdopterPet } = await import('@/lib/actions/pet.actions');
-    const res = await createAdopterPet(data, []);
+    try {
+      const mediaUrls = await uploadImages();
+      const { createAdopterPet } = await import('@/lib/actions/pet.actions');
+      const res = await createAdopterPet(data, mediaUrls);
 
-    if (res.error) {
-      setError(res.error);
+      if (res.error) {
+        setError(res.error);
+        setIsSubmitting(false);
+      } else {
+        onSaved();
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to upload photos');
       setIsSubmitting(false);
-    } else {
-      onSaved();
     }
   };
 
@@ -934,6 +1091,51 @@ function AddAdopterPetForm({ onClose, onSaved }: { onClose: () => void; onSaved:
           <textarea name="description" rows={3} placeholder="Tell us about your pet..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary-300 focus:border-primary-400 outline-none" />
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Photos (optional, up to 5, max 5MB each)</label>
+          <div
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={handleDrop}
+            className={`rounded-lg border-2 border-dashed px-4 py-4 text-center transition-colors ${
+              isDragOver ? 'border-primary-400 bg-primary-50' : 'border-gray-300 bg-gray-50'
+            }`}
+          >
+            <p className="text-sm text-gray-600 mb-2">Drag and drop pet photos here</p>
+            <label className="inline-flex cursor-pointer items-center rounded-full bg-white border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+              Choose files
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImageChange}
+                className="sr-only"
+              />
+            </label>
+          </div>
+          {imagePreviews.length > 0 && (
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              {imagePreviews.map((preview, index) => (
+                <div key={index} className="relative rounded-lg overflow-hidden border border-gray-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={preview} alt={`Pet preview ${index + 1}`} className="w-full h-20 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs"
+                    aria-label="Remove image"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" name="is_vaccinated" className="rounded border-gray-300 text-primary-500 focus:ring-primary-300" />
@@ -967,13 +1169,352 @@ function AddAdopterPetForm({ onClose, onSaved }: { onClose: () => void; onSaved:
           </button>
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || uploadingImages}
             className="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-full text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
           >
-            {isSubmitting ? 'Adding...' : 'Add Pet'}
+            {uploadingImages ? 'Uploading photos...' : isSubmitting ? 'Adding...' : 'Add Pet'}
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function EditAdopterPetForm({
+  pet,
+  onClose,
+  onSaved,
+}: {
+  pet: any;
+  onClose: () => void;
+  onSaved: (pet: any) => void;
+}) {
+  const MAX_IMAGES = 5;
+  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [error, setError] = useState('');
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(Array.isArray(pet?.post?.media_urls) ? pet.post.media_urls : []);
+
+  const addImages = (files: File[]) => {
+    if (!files.length) return;
+    setError('');
+
+    if (existingImageUrls.length + newImages.length + files.length > MAX_IMAGES) {
+      setError(`Maximum ${MAX_IMAGES} images allowed.`);
+      return;
+    }
+
+    const invalidType = files.find((file) => !file.type.startsWith('image/'));
+    if (invalidType) {
+      setError('Only image files are allowed.');
+      return;
+    }
+
+    const oversized = files.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversized) {
+      setError('Each image must be 5MB or smaller.');
+      return;
+    }
+
+    setNewImages((prev) => [...prev, ...files]);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => setNewImagePreviews((prev) => [...prev, (reader.result as string) || '']);
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    addImages(Array.from(event.target.files || []));
+    event.target.value = '';
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    addImages(Array.from(event.dataTransfer.files || []));
+  };
+
+  const removeExistingImage = (index: number) => {
+    setExistingImageUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeNewImage = (index: number) => {
+    setNewImages((prev) => prev.filter((_, i) => i !== index));
+    setNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadNewImages = async () => {
+    if (!newImages.length) return [] as string[];
+
+    setUploadingImages(true);
+    const supabase = createClient();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Not authenticated');
+
+      const uploadedUrls: string[] = [];
+      for (const image of newImages) {
+        const safeName = image.name.replace(/\s+/g, '-').toLowerCase();
+        const fileName = `${user.id}/personal-pets/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
+        const { data, error: uploadError } = await supabase.storage.from('pet-images').upload(fileName, image);
+        if (uploadError || !data) {
+          throw new Error(uploadError?.message || 'Failed to upload pet image');
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('pet-images').getPublicUrl(data.path);
+        uploadedUrls.push(publicUrl);
+      }
+
+      return uploadedUrls;
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+
+    const formData = new FormData(event.currentTarget);
+    const payload = {
+      name: String(formData.get('name') || '').trim(),
+      species: String(formData.get('species') || '').trim(),
+      breed: String(formData.get('breed') || '').trim() || undefined,
+      age_years: formData.get('age_years') ? Number(formData.get('age_years')) : pet.age_years ?? undefined,
+      age_months: formData.get('age_months') ? Number(formData.get('age_months')) : pet.age_months ?? undefined,
+      gender: (String(formData.get('gender') || 'unknown') as 'male' | 'female' | 'unknown'),
+      size: (String(formData.get('size') || 'medium') as 'small' | 'medium' | 'large' | 'extra_large'),
+      color: String(formData.get('color') || '').trim() || undefined,
+      weight: formData.get('weight') ? Number(formData.get('weight')) : pet.weight ?? undefined,
+      is_vaccinated: formData.get('is_vaccinated') === 'on',
+      is_spayed_neutered: formData.get('is_spayed_neutered') === 'on',
+      medical_history: String(formData.get('medical_history') || '').trim() || undefined,
+      temperament: String(formData.get('temperament') || 'friendly').split(',').map((value) => value.trim()).filter(Boolean),
+      good_with_kids: formData.get('good_with_kids') === 'on' ? true : undefined,
+      good_with_dogs: formData.get('good_with_dogs') === 'on' ? true : undefined,
+      good_with_cats: formData.get('good_with_cats') === 'on' ? true : undefined,
+      energy_level: (String(formData.get('energy_level') || pet.energy_level || 'medium') as 'low' | 'medium' | 'high'),
+      special_needs: String(formData.get('special_needs') || '').trim() || undefined,
+      description: String(formData.get('description') || `Meet ${String(formData.get('name') || '').trim()}!`).trim(),
+      tags: [] as string[],
+    };
+
+    if (!payload.name || !payload.species) {
+      setError('Name and species are required.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!payload.temperament.length) {
+      payload.temperament = ['friendly'];
+    }
+
+    try {
+      const uploaded = await uploadNewImages();
+      const mediaUrls = [...existingImageUrls, ...uploaded];
+      const result = await callApiAction<any>('pets', 'updateAdopterPet', [pet.id, payload, mediaUrls]);
+      if (!result.success || result.error || !result.data) {
+        setError(result.error || 'Failed to update pet');
+        setIsSubmitting(false);
+        return;
+      }
+      onSaved({ ...result.data, _source: 'personal' });
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update pet');
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 p-4 flex items-center justify-center" onClick={onClose}>
+      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl p-6" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900">Edit Pet</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl leading-none">x</button>
+        </div>
+
+        {error ? (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4">{error}</div>
+        ) : null}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+              <input name="name" required defaultValue={pet.name} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Species *</label>
+              <input name="species" required defaultValue={pet.species} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Breed</label>
+              <input name="breed" defaultValue={pet.breed || ''} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Color</label>
+              <input name="color" defaultValue={pet.color || ''} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+              <select name="gender" defaultValue={pet.gender || 'unknown'} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Size</label>
+              <select name="size" defaultValue={pet.size || 'medium'} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                <option value="small">Small</option>
+                <option value="medium">Medium</option>
+                <option value="large">Large</option>
+                <option value="extra_large">Extra Large</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Age (years)</label>
+              <input name="age_years" type="number" min="0" defaultValue={pet.age_years ?? ''} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Age (months)</label>
+              <input name="age_months" type="number" min="0" max="11" defaultValue={pet.age_months ?? ''} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+              <input name="weight" type="number" min="0" step="0.1" defaultValue={pet.weight ?? ''} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Energy Level</label>
+              <select name="energy_level" defaultValue={pet.energy_level || 'medium'} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea name="description" defaultValue={pet.post?.description || ''} rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Temperament (comma-separated)</label>
+            <input name="temperament" defaultValue={Array.isArray(pet.temperament) ? pet.temperament.join(', ') : ''} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Medical History</label>
+            <textarea name="medical_history" defaultValue={pet.medical_history || ''} rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Special Needs</label>
+            <textarea name="special_needs" defaultValue={pet.special_needs || ''} rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+          </div>
+
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" name="is_vaccinated" defaultChecked={Boolean(pet.is_vaccinated)} /> Vaccinated
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" name="is_spayed_neutered" defaultChecked={Boolean(pet.is_spayed_neutered)} /> Spayed/Neutered
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" name="good_with_kids" defaultChecked={Boolean(pet.good_with_kids)} /> Good with kids
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" name="good_with_dogs" defaultChecked={Boolean(pet.good_with_dogs)} /> Good with dogs
+            </label>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" name="good_with_cats" defaultChecked={Boolean(pet.good_with_cats)} /> Good with cats
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Manage Photos</label>
+            {existingImageUrls.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-3">
+                {existingImageUrls.map((url, index) => (
+                  <div key={url + index} className="relative rounded-lg overflow-hidden border border-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Existing pet ${index + 1}`} className="w-full h-20 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeExistingImage(index)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs"
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={() => setIsDragOver(false)}
+              onDrop={handleDrop}
+              className={`rounded-lg border-2 border-dashed px-4 py-4 text-center transition-colors ${
+                isDragOver ? 'border-primary-400 bg-primary-50' : 'border-gray-300 bg-gray-50'
+              }`}
+            >
+              <p className="text-sm text-gray-600 mb-2">Drag and drop new pet photos here</p>
+              <label className="inline-flex cursor-pointer items-center rounded-full bg-white border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">
+                Choose files
+                <input type="file" accept="image/*" multiple onChange={handleImageChange} className="sr-only" />
+              </label>
+            </div>
+
+            {newImagePreviews.length > 0 ? (
+              <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                {newImagePreviews.map((url, index) => (
+                  <div key={url + index} className="relative rounded-lg overflow-hidden border border-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`New pet ${index + 1}`} className="w-full h-20 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeNewImage(index)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs"
+                    >
+                      x
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting || uploadingImages}
+              className="flex-1 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-full text-sm font-semibold disabled:opacity-50"
+            >
+              {uploadingImages ? 'Uploading photos...' : isSubmitting ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

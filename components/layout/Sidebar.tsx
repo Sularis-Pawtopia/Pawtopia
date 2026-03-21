@@ -6,12 +6,10 @@ import { usePathname } from 'next/navigation';
 import { useSidebar } from './SidebarContext';
 import {
   Home,
-  Compass,
   Heart,
   Calendar,
   MapPin,
   BookOpen,
-  ShoppingBag,
   Stethoscope,
   BarChart3,
   ClipboardList,
@@ -24,12 +22,10 @@ interface SidebarProps {
 }
 
 const baseNavigation = [
-  { name: 'Explore', href: '/explore', icon: Compass },
-  { name: 'Adoptable Pets', href: '/pets', icon: Heart },
+  { name: 'Companions', href: '/pets', icon: Heart },
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'Lost & Found', href: '/lost-pets', icon: MapPin },
   { name: 'Stories', href: '/stories', icon: BookOpen },
-  { name: 'Store', href: '/store', icon: ShoppingBag },
 ];
 
 export function Sidebar({ user }: SidebarProps) {

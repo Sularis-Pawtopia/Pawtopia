@@ -48,6 +48,7 @@ export type ApiActionArgsByDomain = {
   dvmf: {
     getDvmfRegistryRecords: UnknownArgs;
     createDvmfRegistryRecord: UnknownArgs;
+    createDvmfRegistryFromAdoptable: UnknownArgs;
     updateDvmfRegistryRecord: UnknownArgs;
     deleteDvmfRegistryRecord: UnknownArgs;
   };
@@ -278,6 +279,7 @@ export type ApiActionArgsByDomain = {
     getShelterPets: UnknownArgs;
     searchPets: UnknownArgs;
     createAdopterPet: UnknownArgs;
+    updateAdopterPet: UnknownArgs;
     getAdopterOwnPets: UnknownArgs;
     getAdopterAllPets: UnknownArgs;
     deleteAdopterPet: UnknownArgs;

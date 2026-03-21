@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition, type FormEvent } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 import { notify } from '@/lib/ui/notify';
 import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
+import { createClient } from '@/lib/supabase/client';
 
 interface HealthcareBookingCardProps {
   initialBranches: any[];
@@ -19,6 +20,9 @@ const money = new Intl.NumberFormat('en-PH', {
 });
 
 export function HealthcareBookingCard({ initialBranches, initialServices, initialPets, canAddPet = false }: HealthcareBookingCardProps) {
+  const MAX_IMAGES = 5;
+  const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
   const [branches] = useState<any[]>(initialBranches || []);
   const [services] = useState<any[]>(initialServices || []);
   const [pets, setPets] = useState<any[]>(initialPets || []);
@@ -35,6 +39,105 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
   const [showAddPetModal, setShowAddPetModal] = useState(false);
   const [addPetError, setAddPetError] = useState<string | null>(null);
   const [isAddingPet, startAddPetTransition] = useTransition();
+  const [addPetImages, setAddPetImages] = useState<File[]>([]);
+  const [addPetImagePreviews, setAddPetImagePreviews] = useState<string[]>([]);
+  const [isUploadingPetImages, setIsUploadingPetImages] = useState(false);
+  const [isAddPetDragOver, setIsAddPetDragOver] = useState(false);
+
+  const addPetImagesToQueue = (files: File[]) => {
+    if (!files.length) return;
+
+    setAddPetError(null);
+
+    if (addPetImages.length + files.length > MAX_IMAGES) {
+      setAddPetError(`Maximum ${MAX_IMAGES} images allowed.`);
+      return;
+    }
+
+    const invalidType = files.find((file) => !file.type.startsWith('image/'));
+    if (invalidType) {
+      setAddPetError('Only image files are allowed.');
+      return;
+    }
+
+    const oversized = files.find((file) => file.size > MAX_IMAGE_SIZE_BYTES);
+    if (oversized) {
+      setAddPetError('Each image must be 5MB or smaller.');
+      return;
+    }
+
+    setAddPetImages((prev) => [...prev, ...files]);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAddPetImagePreviews((prev) => [...prev, (reader.result as string) || '']);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleAddPetImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    addPetImagesToQueue(files);
+    event.target.value = '';
+  };
+
+  const handleAddPetDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsAddPetDragOver(false);
+    const files = Array.from(event.dataTransfer.files || []);
+    addPetImagesToQueue(files);
+  };
+
+  const removeAddPetImage = (index: number) => {
+    setAddPetImages((prev) => prev.filter((_, i) => i !== index));
+    setAddPetImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const resetAddPetImageState = () => {
+    setAddPetImages([]);
+    setAddPetImagePreviews([]);
+  };
+
+  const uploadAddPetImages = async () => {
+    if (addPetImages.length === 0) return [] as string[];
+
+    setIsUploadingPetImages(true);
+    const supabase = createClient();
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      const urls: string[] = [];
+      for (const image of addPetImages) {
+        const safeName = image.name.replace(/\s+/g, '-').toLowerCase();
+        const path = `${user.id}/personal-pets/${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
+        const { data, error: uploadError } = await supabase.storage
+          .from('pet-images')
+          .upload(path, image);
+
+        if (uploadError || !data) {
+          throw new Error(uploadError?.message || 'Failed to upload pet image');
+        }
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from('pet-images').getPublicUrl(data.path);
+
+        urls.push(publicUrl);
+      }
+
+      return urls;
+    } finally {
+      setIsUploadingPetImages(false);
+    }
+  };
 
   const servicesForBranch = useMemo(() => {
     const resolveServiceBranchId = (service: any) =>
@@ -148,6 +251,16 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
     }
 
     startAddPetTransition(async () => {
+      let uploadedUrls: string[] = [];
+      try {
+        uploadedUrls = await uploadAddPetImages();
+      } catch (uploadErr: any) {
+        const message = uploadErr?.message || 'Failed to upload pet photos';
+        setAddPetError(message);
+        notify.error({ title: 'Pet creation failed', description: message });
+        return;
+      }
+
       const payload = {
         name,
         species,
@@ -175,7 +288,7 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
         payload.temperament = ['friendly'];
       }
 
-      const result = await callApiAction<any>('pets', 'createAdopterPet', [payload, []]);
+      const result = await callApiAction<any>('pets', 'createAdopterPet', [payload, uploadedUrls]);
       if (!result.success || result.error || !result.data) {
         const message = result.error || 'Failed to add pet';
         setAddPetError(message);
@@ -191,6 +304,7 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
       });
       setSelectedPetId(newPet.id);
       setShowAddPetModal(false);
+      resetAddPetImageState();
       setSuccess('Pet added successfully. You can now use it for healthcare requests.');
       notify.success({ title: 'Pet added', description: 'You can now use this pet for healthcare requests.' });
       setTimeout(() => setSuccess(null), 2500);
@@ -295,6 +409,7 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
                 type="button"
                 onClick={() => {
                   setAddPetError(null);
+                  resetAddPetImageState();
                   setShowAddPetModal(true);
                 }}
                 className="text-[11px] font-semibold text-primary-700 hover:text-primary-800"
@@ -453,15 +568,69 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
                 <textarea name="medical_history" rows={2} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
               </div>
 
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Photos (optional, up to 5, max 5MB each)</label>
+                <div
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsAddPetDragOver(true);
+                  }}
+                  onDragLeave={() => setIsAddPetDragOver(false)}
+                  onDrop={handleAddPetDrop}
+                  className={`rounded-lg border-2 border-dashed px-4 py-4 text-center transition-colors ${
+                    isAddPetDragOver ? 'border-primary-400 bg-primary-50' : 'border-gray-300 bg-gray-50'
+                  }`}
+                >
+                  <p className="text-xs text-gray-600 mb-2">Drag and drop pet photos here</p>
+                  <label className="inline-flex cursor-pointer items-center rounded-full bg-white border border-gray-200 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100">
+                    Choose files
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleAddPetImageChange}
+                      className="sr-only"
+                    />
+                  </label>
+                </div>
+                {addPetImagePreviews.length > 0 ? (
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    {addPetImagePreviews.map((preview, index) => (
+                      <div key={index} className="relative rounded-lg overflow-hidden border border-gray-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={preview} alt={`Pet upload preview ${index + 1}`} className="h-20 w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => removeAddPetImage(index)}
+                          className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/70 text-white text-xs"
+                          aria-label="Remove image"
+                        >
+                          x
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
               <div className="flex items-center gap-4 text-xs text-gray-700">
                 <label className="inline-flex items-center gap-2"><input type="checkbox" name="is_vaccinated" /> Vaccinated</label>
                 <label className="inline-flex items-center gap-2"><input type="checkbox" name="is_spayed_neutered" /> Spayed/Neutered</label>
               </div>
 
               <div className="flex justify-end gap-2 pt-1">
-                <button type="button" onClick={() => setShowAddPetModal(false)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">Cancel</button>
-                <button type="submit" disabled={isAddingPet} className="px-3 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-60">
-                  {isAddingPet ? 'Adding...' : 'Add Pet'}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddPetModal(false);
+                    resetAddPetImageState();
+                  }}
+                  className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+                <button type="submit" disabled={isAddingPet || isUploadingPetImages} className="px-3 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-60">
+                  {isUploadingPetImages ? 'Uploading photos...' : isAddingPet ? 'Adding...' : 'Add Pet'}
                 </button>
               </div>
             </form>

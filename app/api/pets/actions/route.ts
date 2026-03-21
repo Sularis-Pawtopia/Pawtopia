@@ -9,6 +9,7 @@ import {
   getPet,
   getShelterPets,
   searchPets,
+  updateAdopterPet,
   updatePet,
   updatePetStatus,
 } from '@/lib/actions/pet.actions';
@@ -24,6 +25,7 @@ export const POST = createActionRoute({
   getShelterPets,
   searchPets,
   createAdopterPet,
+  updateAdopterPet,
   getAdopterOwnPets,
   getAdopterAllPets,
   deleteAdopterPet,

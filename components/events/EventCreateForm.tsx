@@ -22,7 +22,7 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
 
   const [eventForm, setEventForm] = useState({
     event_name: '',
-    event_type: 'adoption',
+    event_type: 'community',
     event_date: '',
     end_date: '',
     location: '',
@@ -225,7 +225,7 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
               onChange={(e) => setEventForm({ ...eventForm, event_type: e.target.value })}
               className="px-3 py-2 border border-gray-300 rounded-lg"
             >
-              <option value="adoption">Adoption Drive</option>
+              <option value="community">Community Gathering</option>
               <option value="vaccination">Vaccination</option>
               <option value="seminar">Seminar</option>
               <option value="fundraiser">Fundraiser</option>

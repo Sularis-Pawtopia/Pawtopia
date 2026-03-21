@@ -424,6 +424,91 @@ export async function createAdopterPet(
   return { success: true, data: pet };
 }
 
+export async function updateAdopterPet(
+  petId: string,
+  formData: PetFormData,
+  mediaUrls: string[]
+) {
+  const supabase = await createClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Not authenticated' };
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+
+  if (!userData || !['adopter', 'volunteer', 'regular_user'].includes(userData.role)) {
+    return { error: 'Only adopter, volunteer, or regular user accounts can update personal pets' };
+  }
+
+  const { data: existingPet, error: existingError } = await supabase
+    .from('pets')
+    .select('id, owner_id, post_id')
+    .eq('id', petId)
+    .single();
+
+  if (existingError || !existingPet) {
+    return { error: 'Pet not found' };
+  }
+
+  if (existingPet.owner_id !== user.id) {
+    return { error: 'Not authorized' };
+  }
+
+  const { error: postError } = await supabase
+    .from('posts')
+    .update({
+      title: formData.name,
+      description: formData.description,
+      media_urls: mediaUrls,
+      tags: formData.tags || [],
+      is_active: false,
+    })
+    .eq('id', existingPet.post_id)
+    .eq('user_id', user.id);
+
+  if (postError) {
+    return { error: postError.message };
+  }
+
+  const { data: updatedPet, error: petError } = await supabase
+    .from('pets')
+    .update({
+      name: formData.name,
+      species: formData.species,
+      breed: formData.breed,
+      age_years: formData.age_years,
+      age_months: formData.age_months,
+      gender: formData.gender,
+      size: formData.size,
+      color: formData.color,
+      weight: formData.weight,
+      is_vaccinated: formData.is_vaccinated,
+      is_spayed_neutered: formData.is_spayed_neutered,
+      medical_history: formData.medical_history,
+      temperament: formData.temperament,
+      good_with_kids: formData.good_with_kids,
+      good_with_dogs: formData.good_with_dogs,
+      good_with_cats: formData.good_with_cats,
+      energy_level: formData.energy_level,
+      special_needs: formData.special_needs,
+    })
+    .eq('id', petId)
+    .eq('owner_id', user.id)
+    .select('*, post:posts(*)')
+    .single();
+
+  if (petError) {
+    return { error: petError.message };
+  }
+
+  revalidatePath(`/profile/${user.id}`);
+  return { success: true, data: updatedPet };
+}
+
 export async function getAdopterOwnPets(userId: string) {
   const supabase = await createClient();
 

@@ -21,6 +21,14 @@ interface UpdateRegistryInput extends CreateRegistryInput {
   id: string;
 }
 
+interface CreateRegistryFromAdoptableInput {
+  petId: string;
+  markings: string;
+  owner_name: string;
+  owner_address: string;
+  notes?: string;
+}
+
 async function getAuthedDvmfUser() {
   const supabase = await createClient();
   const {
@@ -184,4 +192,77 @@ export async function deleteDvmfRegistryRecord(id: string) {
 
   revalidatePath('/dvmf');
   return { success: true };
+}
+
+export async function createDvmfRegistryFromAdoptable(input: CreateRegistryFromAdoptableInput) {
+  const { supabase, user, profile } = await getAuthedDvmfUser();
+  if (!user || !profile) return { success: false, error: 'Not authenticated' };
+  if (profile.role !== 'dvmf') {
+    return { success: false, error: 'Only DVMF accounts can register records' };
+  }
+
+  if (!input.markings?.trim() || !input.owner_name?.trim() || !input.owner_address?.trim()) {
+    return { success: false, error: 'Markings, owner name, and owner address are required' };
+  }
+
+  const { data: pet, error: petError } = await (supabase as any)
+    .from('pets')
+    .select('*, post:posts(*)')
+    .eq('id', input.petId)
+    .single();
+
+  if (petError || !pet) {
+    return { success: false, error: 'Adoptable pet not found' };
+  }
+
+  const { data: existing } = await (supabase as any)
+    .from('dvmf_pet_registry')
+    .select('id')
+    .eq('dvmf_id', user.id)
+    .eq('pet_name', pet.name)
+    .eq('owner_name', input.owner_name.trim())
+    .eq('owner_address', input.owner_address.trim())
+    .maybeSingle();
+
+  if (existing?.id) {
+    return { success: false, error: 'A matching registry record already exists for this pet and owner' };
+  }
+
+  const birthDate = (() => {
+    const years = Number(pet.age_years || 0);
+    const months = Number(pet.age_months || 0);
+    if (!years && !months) return undefined;
+
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - years);
+    date.setMonth(date.getMonth() - months);
+    return date.toISOString().slice(0, 10);
+  })();
+
+  const generatedNotes = [
+    pet.color ? `Color: ${pet.color}` : null,
+    pet.size ? `Size: ${pet.size}` : null,
+    Array.isArray(pet.temperament) && pet.temperament.length ? `Temperament: ${pet.temperament.join(', ')}` : null,
+    pet.medical_history ? `Medical history: ${pet.medical_history}` : null,
+    pet.special_needs ? `Special needs: ${pet.special_needs}` : null,
+    input.notes?.trim() ? `Notes: ${input.notes.trim()}` : null,
+  ]
+    .filter(Boolean)
+    .join(' | ');
+
+  const payload: CreateRegistryInput = {
+    pet_name: pet.name,
+    markings: input.markings.trim(),
+    sex: pet.gender === 'female' ? 'female' : 'male',
+    birth_date: birthDate,
+    is_vaccinated: Boolean(pet.is_vaccinated),
+    last_vaccination_date: undefined,
+    is_spayed_neutered: Boolean(pet.is_spayed_neutered),
+    owner_name: input.owner_name.trim(),
+    owner_address: input.owner_address.trim(),
+    pet_photo_url: Array.isArray(pet.post?.media_urls) && pet.post.media_urls.length > 0 ? pet.post.media_urls[0] : undefined,
+    notes: generatedNotes || undefined,
+  };
+
+  return createDvmfRegistryRecord(payload);
 }

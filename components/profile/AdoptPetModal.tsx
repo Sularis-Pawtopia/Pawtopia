@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 import { notify } from '@/lib/ui/notify';
 import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
+import { PetIdCardDownload } from '@/components/pets/PetIdCardDownload';
 
 interface AdoptPetModalProps {
   pet: any;
@@ -190,6 +191,8 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
                 <p className="text-sm text-gray-500 mt-1">{description}</p>
               )}
             </div>
+
+            <PetIdCardDownload pet={pet} />
 
             {/* Quick info grid */}
             <div className="grid grid-cols-2 gap-2.5">

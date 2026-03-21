@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 import { createClient } from '@/lib/supabase/client';
+import { PetDetailModal } from '@/components/pets/PetDetailModal';
 
 interface RegistryRecord {
   id: string;
@@ -537,110 +538,47 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
         </section>
       </div>
 
-      {/* Pet Profile Modal */}
       {viewingRecord && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-          onClick={() => setViewingRecord(null)}
-        >
-          <div
-            className="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header photo or color band */}
-            <div className="relative bg-gradient-to-br from-primary-500 to-secondary-500 h-36 flex items-end px-6 pb-4">
-              {viewingRecord.pet_photo_url ? (
-                <img
-                  src={viewingRecord.pet_photo_url}
-                  alt={viewingRecord.pet_name}
-                  className="w-24 h-24 rounded-xl object-cover border-4 border-white shadow-md"
-                />
-              ) : (
-                <div className="w-24 h-24 rounded-xl bg-white/30 border-4 border-white shadow-md flex items-center justify-center text-4xl">
-                  🐾
-                </div>
-              )}
-              <button
-                onClick={() => setViewingRecord(null)}
-                className="absolute top-3 right-3 text-white/80 hover:text-white text-2xl leading-none"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="px-6 pt-4 pb-6 space-y-4">
-              {/* Name + markings + sex */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">{viewingRecord.pet_name}</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {viewingRecord.markings} &bull; {viewingRecord.sex.charAt(0).toUpperCase() + viewingRecord.sex.slice(1)}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                {/* Birth date & age */}
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-0.5">Birth Date</p>
-                  <p className="font-medium text-gray-900">{formatDateMDY(viewingRecord.birth_date)}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{calculateAgeLabel(viewingRecord.birth_date)}</p>
-                </div>
-
-                {/* Spayed / Neutered */}
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-0.5">Spayed / Neutered</p>
-                  <p className={`font-medium ${viewingRecord.is_spayed_neutered ? 'text-green-700' : 'text-gray-900'}`}>
-                    {viewingRecord.is_spayed_neutered ? 'Yes' : 'No'}
-                  </p>
-                </div>
-
-                {/* Vaccination */}
-                <div className="bg-gray-50 rounded-lg p-3 col-span-2">
-                  <p className="text-xs text-gray-500 mb-0.5">Vaccination</p>
-                  <p className={`font-medium ${viewingRecord.is_vaccinated ? 'text-green-700' : 'text-red-600'}`}>
-                    {viewingRecord.is_vaccinated
-                      ? `Vaccinated — last on ${formatDateMDY(viewingRecord.last_vaccination_date)}`
-                      : 'Not vaccinated'}
-                  </p>
-                </div>
-
-                {/* Owner */}
-                <div className="bg-gray-50 rounded-lg p-3 col-span-2">
-                  <p className="text-xs text-gray-500 mb-0.5">Owner</p>
-                  <p className="font-medium text-gray-900">{viewingRecord.owner_name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{viewingRecord.owner_address}</p>
-                </div>
-
-                {/* Notes */}
-                {viewingRecord.notes && (
-                  <div className="bg-gray-50 rounded-lg p-3 col-span-2">
-                    <p className="text-xs text-gray-500 mb-0.5">Notes</p>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{viewingRecord.notes}</p>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-xs text-gray-400">
-                Registered on {formatDateTimeMDY(viewingRecord.created_at)}
-              </p>
-
-              <div className="flex gap-2 pt-1">
-                <button
-                  onClick={() => { setViewingRecord(null); startEdit(viewingRecord); }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
-                >
-                  Edit Record
-                </button>
-                <button
-                  onClick={() => { setViewingRecord(null); onDelete(viewingRecord.id); }}
-                  className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PetDetailModal
+          pet={{
+            id: viewingRecord.id,
+            name: viewingRecord.pet_name,
+            species: 'registry',
+            breed: viewingRecord.markings,
+            gender: viewingRecord.sex,
+            size: 'recorded',
+            status: 'registered',
+            is_vaccinated: viewingRecord.is_vaccinated,
+            is_spayed_neutered: viewingRecord.is_spayed_neutered,
+            medical_history: viewingRecord.notes || undefined,
+            post: {
+              description: viewingRecord.notes || `Owner: ${viewingRecord.owner_name} | Address: ${viewingRecord.owner_address}`,
+              media_urls: viewingRecord.pet_photo_url ? [viewingRecord.pet_photo_url] : [],
+              tags: ['DVMF Registry'],
+            },
+          }}
+          userRole="dvmf"
+          showAdoptSection={false}
+          onEdit={() => {
+            setViewingRecord(null);
+            startEdit(viewingRecord);
+          }}
+          onChangePicture={() => {
+            setViewingRecord(null);
+            startEdit(viewingRecord);
+          }}
+          onClose={() => setViewingRecord(null)}
+          actions={[
+            {
+              label: 'Delete Record',
+              tone: 'danger',
+              onClick: () => {
+                setViewingRecord(null);
+                onDelete(viewingRecord.id);
+              },
+            },
+          ]}
+        />
       )}
     </div>
   );

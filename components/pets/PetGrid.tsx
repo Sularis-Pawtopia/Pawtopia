@@ -51,9 +51,10 @@ interface PetGridProps {
   isOwner?: boolean;
   userRole?: string;
   userId?: string;
+  onPetClick?: (pet: Pet) => void;
 }
 
-export function PetGrid({ pets, isOwner, userRole, userId }: PetGridProps) {
+export function PetGrid({ pets, isOwner, userRole, userId, onPetClick }: PetGridProps) {
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [existingRequests, setExistingRequests] = useState<Record<string, { id: string; status: string } | null>>({});
@@ -90,6 +91,11 @@ export function PetGrid({ pets, isOwner, userRole, userId }: PetGridProps) {
   };
 
   const handlePetClick = (pet: Pet) => {
+    if (onPetClick) {
+      onPetClick(pet);
+      return;
+    }
+
     if (isOwner) {
       // Owner: navigate to edit
       window.location.href = `/shelter/pets/${pet.id}/edit`;
