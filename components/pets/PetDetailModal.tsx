@@ -6,6 +6,7 @@ import { PetIdCardDownload } from './PetIdCardDownload';
 
 interface PetDetailModalProps {
   pet: any;
+  ownerContext?: any;
   userRole?: string;
   existingRequest?: { id: string; status: string } | null;
   onClose: () => void;
@@ -22,6 +23,7 @@ interface PetDetailModalProps {
 
 export function PetDetailModal({
   pet,
+  ownerContext,
   userRole,
   existingRequest,
   onClose,
@@ -145,7 +147,7 @@ export function PetDetailModal({
           )}
 
           <div className="mb-4">
-            <PetIdCardDownload pet={pet} />
+            <PetIdCardDownload pet={pet} ownerContext={ownerContext} />
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">

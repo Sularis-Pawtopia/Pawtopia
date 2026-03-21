@@ -9,13 +9,14 @@ import { PetIdCardDownload } from '@/components/pets/PetIdCardDownload';
 interface AdoptPetModalProps {
   pet: any;
   shelterProfile?: any;
+  viewerProfile?: any;
   viewerRole?: string | null;
   existingRequest?: { id: string; status: string; created_at?: string } | null;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existingRequest: externalRequest, onClose, onSuccess }: AdoptPetModalProps) {
+export default function AdoptPetModal({ pet, shelterProfile, viewerProfile, viewerRole, existingRequest: externalRequest, onClose, onSuccess }: AdoptPetModalProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -192,7 +193,7 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
               )}
             </div>
 
-            <PetIdCardDownload pet={pet} />
+            <PetIdCardDownload pet={pet} ownerContext={viewerProfile} />
 
             {/* Quick info grid */}
             <div className="grid grid-cols-2 gap-2.5">

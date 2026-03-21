@@ -418,6 +418,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
           {selectedPet && selectedPet._source !== 'personal' && (
             <AdoptPetModal
               pet={selectedPet}
+              viewerProfile={profile}
               viewerRole={profile.viewerRole}
               onClose={() => setSelectedPet(null)}
             />
@@ -426,6 +427,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
           {selectedPet && selectedPet._source === 'personal' && (
             <PetDetailModal
               pet={selectedPet}
+              ownerContext={profile}
               userRole={profile.viewerRole || profile.role}
               showAdoptSection={false}
               onEdit={() => setEditingPersonalPet(selectedPet)}
@@ -493,6 +495,7 @@ export function ProfileContent({ profile }: ProfileContentProps) {
           {selectedPendingReq && selectedPendingReq.pet && (
             <AdoptPetModal
               pet={selectedPendingReq.pet}
+              viewerProfile={profile}
               shelterProfile={selectedPendingReq.pet.shelter ? {
                 id: selectedPendingReq.pet.shelter.id,
                 username: selectedPendingReq.pet.shelter.username,
