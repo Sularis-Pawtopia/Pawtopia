@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { callApiAction } from '@/lib/api/action-client';
 import { signUpSchema, type SignUpFormData } from '@/lib/validations';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 // Role definitions with badges, descriptions, and requirements
 const ROLES = [
@@ -170,8 +172,10 @@ export function SignUpForm() {
       
       if (result.error) {
         setError(result.error);
+        notify.error({ title: 'Sign up failed', description: result.error });
       } else {
         setSuccess(true);
+        notify.success({ title: 'Account created', description: 'Redirecting to your onboarding flow.' });
         const routeMap: Record<string, string> = {
           regular_user: '/onboarding/user',
           volunteer: '/onboarding/volunteer',
@@ -183,7 +187,9 @@ export function SignUpForm() {
         setTimeout(() => router.push(routeMap[data.role] || '/onboarding/user'), 1000);
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      const message = 'An unexpected error occurred';
+      setError(message);
+      notify.error({ title: 'Sign up failed', description: message });
       console.error('Signup error:', err);
     } finally {
       setIsLoading(false);
@@ -191,7 +197,9 @@ export function SignUpForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <>
+      {isLoading && <PageLoaderOverlay label="Creating your account..." />}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-600">{error}</p>
@@ -448,6 +456,7 @@ export function SignUpForm() {
           </p>
         </>
       )}
-    </form>
+      </form>
+    </>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 interface AdoptPetModalProps {
   pet: any;
@@ -67,15 +69,19 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
       const res: any = await callApiAction('adoption', 'createAdoptionRequest', [pet.id]);
       if (res.error) {
         setError(res.error);
+        notify.error({ title: 'Adoption request failed', description: res.error });
       } else {
         setSuccess(true);
+        notify.success({ title: 'Request submitted', description: 'Your adoption request was sent to the shelter.' });
         setTimeout(() => {
           if (onSuccess) onSuccess();
           onClose();
         }, 2000);
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to apply');
+      const message = err?.message || 'Failed to apply';
+      setError(message);
+      notify.error({ title: 'Adoption request failed', description: message });
     } finally {
       setIsLoading(false);
     }
@@ -89,8 +95,10 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
       const res: any = await callApiAction('adoption', 'cancelAdoptionRequest', [existingReq.id, cancelReason || undefined]);
       if (res.error) {
         setError(res.error);
+        notify.error({ title: 'Cancellation failed', description: res.error });
       } else {
         setCancelSuccess(true);
+        notify.success({ title: 'Request cancelled', description: 'Your adoption request was cancelled.' });
         setExistingReq(null);
         setShowCancelConfirm(false);
         setCancelReason('');
@@ -100,7 +108,9 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
         }, 2000);
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to cancel');
+      const message = err?.message || 'Failed to cancel';
+      setError(message);
+      notify.error({ title: 'Cancellation failed', description: message });
     } finally {
       setIsCancelling(false);
     }
@@ -115,6 +125,7 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      {(isLoading || isCancelling) && <PageLoaderOverlay label={isCancelling ? 'Cancelling request...' : 'Submitting request...'} />}
       <div
         className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row"
         onClick={(e) => e.stopPropagation()}

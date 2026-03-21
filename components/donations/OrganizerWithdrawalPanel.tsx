@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface WithdrawalRequest {
   id: string;
@@ -153,7 +154,13 @@ export function OrganizerWithdrawalPanel({
   };
 
   if (loading) {
-    return <div className="text-gray-600">Loading withdrawal requests...</div>;
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-28 w-full" />
+      </div>
+    );
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface Organizer {
   id: string;
@@ -177,7 +178,12 @@ export function AdminWithdrawalManagementPanel() {
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <p className="text-gray-600">Loading withdrawal requests...</p>
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-64" />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={`admin-withdrawal-skeleton-${index}`} className="h-16 w-full" />
+          ))}
+        </div>
       </div>
     );
   }

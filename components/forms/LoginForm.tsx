@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { callApiAction } from '@/lib/api/action-client';
 import { loginSchema, type LoginFormData } from '@/lib/validations';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 function getApiErrorMessage(error: unknown, fallback: string) {
   if (!error) {
@@ -62,30 +64,39 @@ export function LoginForm() {
       const result = await callApiAction<{ redirectTo?: string }>('auth', 'login', [data]);
       
       if (result?.error) {
-        setError(getApiErrorMessage(result.error, 'Unable to sign in. Please check your email and password.'));
+        const message = getApiErrorMessage(result.error, 'Unable to sign in. Please check your email and password.');
+        setError(message);
+        notify.error({ title: 'Sign in failed', description: message });
         setIsLoading(false);
         return;
       }
 
       if (result?.success === false) {
-        setError('Unable to sign in right now. Please try again.');
+        const message = 'Unable to sign in right now. Please try again.';
+        setError(message);
+        notify.error({ title: 'Sign in failed', description: message });
         setIsLoading(false);
         return;
       }
 
       const redirectTo = typeof result.redirectTo === 'string' ? result.redirectTo : '/dashboard';
+      notify.success({ title: 'Signed in', description: 'Welcome back to Pawtopia.' });
       router.push(redirectTo);
       router.refresh();
       return;
     } catch (err: unknown) {
-      setError('An unexpected error occurred');
+      const message = 'An unexpected error occurred';
+      setError(message);
+      notify.error({ title: 'Sign in failed', description: message });
       console.error('Login error:', err);
       setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <>
+      {isLoading && <PageLoaderOverlay label="Signing you in..." />}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Error Message */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -140,6 +151,7 @@ export function LoginForm() {
           Forgot password?
         </a>
       </div>
-    </form>
+      </form>
+    </>
   );
 }

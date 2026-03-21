@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 import { formatDistanceToNow } from 'date-fns';
 import type { ReportStatusHistory } from '@/types/expanded.types';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface ReportTimelineProps {
   reportId: string;
@@ -36,8 +37,14 @@ export function ReportTimeline({ reportId }: ReportTimelineProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-4">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-orange-500"></div>
+      <div className="space-y-3 py-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={`timeline-skeleton-${index}`} className="pl-6">
+            <Skeleton className="h-4 w-56 mb-2" />
+            <Skeleton className="h-3 w-28 mb-2" />
+            <Skeleton className="h-9 w-full" />
+          </div>
+        ))}
       </div>
     );
   }

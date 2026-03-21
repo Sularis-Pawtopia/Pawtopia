@@ -10,6 +10,8 @@ import {
   REPORT_CATEGORIES 
 } from '@/lib/validators/expanded.validators';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 interface ReportFormProps {
   isAuthenticated: boolean;
@@ -47,7 +49,9 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
   // Get current location
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
+      const message = 'Geolocation is not supported by your browser';
+      setError(message);
+      notify.error({ title: 'Location unavailable', description: message });
       return;
     }
 
@@ -62,7 +66,9 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
       },
       (err) => {
         console.error('Geolocation error:', err);
-        setError('Unable to get your location. Please enter it manually.');
+        const message = 'Unable to get your location. Please enter it manually.';
+        setError(message);
+        notify.error({ title: 'Location unavailable', description: message });
         setGettingLocation(false);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -73,7 +79,9 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length + mediaFiles.length > 5) {
-      setError('Maximum 5 files allowed');
+      const message = 'Maximum 5 files allowed';
+      setError(message);
+      notify.error({ title: 'Too many files', description: message });
       return;
     }
 
@@ -143,15 +151,20 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
 
       if (result.success) {
         setSuccess(true);
+        notify.success({ title: 'Report submitted', description: 'Your report has been sent to authorities.' });
         setTimeout(() => {
           router.push('/dashboard/reports/success');
         }, 2000);
       } else {
-        setError(result.error || 'Failed to submit report');
+        const message = result.error || 'Failed to submit report';
+        setError(message);
+        notify.error({ title: 'Report submission failed', description: message });
       }
     } catch (err) {
       console.error('Submit report error:', err);
-      setError('An unexpected error occurred');
+      const message = 'An unexpected error occurred';
+      setError(message);
+      notify.error({ title: 'Report submission failed', description: message });
     } finally {
       setIsLoading(false);
     }
@@ -173,7 +186,9 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <>
+      {isLoading && <PageLoaderOverlay label="Submitting report..." />}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {/* Privacy Notice */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <div className="flex items-start gap-3">
@@ -502,6 +517,7 @@ export function ReportForm({ isAuthenticated }: ReportFormProps) {
         By submitting this report, you confirm that the information provided is accurate 
         to the best of your knowledge. False reports may be subject to legal action.
       </p>
-    </form>
+      </form>
+    </>
   );
 }

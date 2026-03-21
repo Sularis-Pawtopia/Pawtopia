@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client';
 import { ImageCarousel } from './ImageCarousel';
 import { PetDetailModal } from '../pets/PetDetailModal';
 import AdoptPetModal from '../profile/AdoptPetModal';
+import { notify } from '@/lib/ui/notify';
 
 interface FeedListProps {
   initialPosts: PostWithDetails[];
@@ -136,9 +137,11 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     const result = await callApiAction<any>('events', 'registerParticipant', [eventId]);
     setEventActionPendingId(null);
     if (!result.success) {
-      alert(result.error || 'Failed to register participant');
+      notify.error({ title: 'Registration failed', description: result.error || 'Failed to register participant' });
       return;
     }
+
+    notify.success({ title: 'Registered', description: 'You are now registered for this event.' });
 
     const status = (result.data?.status as ParticipantStatus) || 'registered';
     setParticipantStatusByEvent((prev) => ({ ...prev, [eventId]: status }));
@@ -166,9 +169,11 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     const result = await callApiAction<any>('events', 'cancelParticipantRegistration', [eventId]);
     setEventActionPendingId(null);
     if (!result.success) {
-      alert(result.error || 'Failed to cancel participant registration');
+      notify.error({ title: 'Cancellation failed', description: result.error || 'Failed to cancel participant registration' });
       return;
     }
+
+    notify.info({ title: 'Registration cancelled', description: 'Your event registration was cancelled.' });
 
     setParticipantStatusByEvent((prev) => ({ ...prev, [eventId]: 'cancelled' }));
 
@@ -201,11 +206,12 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     ]);
     setEventActionPendingId(null);
     if (!result.success) {
-      alert(result.error || 'Failed to apply as volunteer');
+      notify.error({ title: 'Application failed', description: result.error || 'Failed to apply as volunteer' });
       return;
     }
 
     setVolunteerStatusByEvent((prev) => ({ ...prev, [eventId]: 'pending' }));
+    notify.success({ title: 'Application sent', description: 'Your volunteer application is pending review.' });
   }, [currentUserId]);
 
   const cancelVolunteerOnPost = useCallback(async (eventId: string) => {
@@ -213,11 +219,12 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     const result = await callApiAction<any>('volunteer', 'cancelMyEventVolunteerApplication', [eventId]);
     setEventActionPendingId(null);
     if (!result.success) {
-      alert(result.error || 'Failed to cancel volunteer registration');
+      notify.error({ title: 'Cancellation failed', description: result.error || 'Failed to cancel volunteer registration' });
       return;
     }
 
     setVolunteerStatusByEvent((prev) => ({ ...prev, [eventId]: null }));
+    notify.info({ title: 'Application cancelled', description: 'Your volunteer application was cancelled.' });
   }, []);
 
   // Close kebab when clicking outside
@@ -236,10 +243,11 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     if (!window.confirm('Delete this post? This cannot be undone.')) return;
     const result = await callApiAction('posts', 'deletePost', [postId]);
     if (result.error) {
-      alert(result.error);
+      notify.error({ title: 'Delete failed', description: result.error });
       return;
     }
     setPosts((prev) => prev.filter((p) => p.id !== postId));
+    notify.success({ title: 'Post deleted' });
   }, []);
 
   const openEditModal = useCallback((post: PostWithDetails) => {
@@ -257,10 +265,12 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     setEditPending(false);
     if (result.error) {
       setEditError(result.error);
+      notify.error({ title: 'Update failed', description: result.error });
       return;
     }
     setPosts((prev) => prev.map((p) => p.id === editingPost.id ? { ...p, description: editDescription } : p));
     setEditingPost(null);
+    notify.success({ title: 'Post updated' });
   }, [editingPost, editDescription]);
 
   // Store postIds in a ref to avoid subscription churn

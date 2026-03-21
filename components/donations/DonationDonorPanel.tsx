@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface DonationDonorPanelProps {
   campaignId: string;
@@ -74,7 +77,9 @@ export function DonationDonorPanel({
 
     const amount = Number(donationAmount || 0);
     if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Donation amount must be greater than zero');
+      const message = 'Donation amount must be greater than zero';
+      setError(message);
+      notify.error({ title: 'Invalid donation amount', description: message });
       return;
     }
 
@@ -90,20 +95,27 @@ export function DonationDonorPanel({
       ]);
 
       if (!result.success) {
-        setError(result.error || 'Failed to create donation checkout');
+        const message = result.error || 'Failed to create donation checkout';
+        setError(message);
+        notify.error({ title: 'Checkout failed', description: message });
         setIsSubmitting(false);
         return;
       }
 
       const checkoutUrl = (result.data as any)?.checkout_url;
       if (checkoutUrl) {
+        notify.success({ title: 'Redirecting to checkout' });
         window.location.href = checkoutUrl;
       } else {
-        setError('No checkout URL provided');
+        const message = 'No checkout URL provided';
+        setError(message);
+        notify.error({ title: 'Checkout failed', description: message });
         setIsSubmitting(false);
       }
     } catch {
-      setError('An error occurred while initiating donation');
+      const message = 'An error occurred while initiating donation';
+      setError(message);
+      notify.error({ title: 'Checkout failed', description: message });
       setIsSubmitting(false);
     }
   };
@@ -113,7 +125,9 @@ export function DonationDonorPanel({
     setSuccess('');
 
     if (!inKindSummary.trim()) {
-      setError('Please describe the items you want to donate');
+      const message = 'Please describe the items you want to donate';
+      setError(message);
+      notify.error({ title: 'Invalid in-kind donation', description: message });
       return;
     }
 
@@ -129,19 +143,24 @@ export function DonationDonorPanel({
       ]);
 
       if (!result.success) {
-        setError(result.error || 'Failed to submit in-kind donation intent');
+        const message = result.error || 'Failed to submit in-kind donation intent';
+        setError(message);
+        notify.error({ title: 'Submission failed', description: message });
         setIsSubmitting(false);
         return;
       }
 
       setSuccess('In-kind donation intent submitted! The organizer will contact you for drop-off details.');
+      notify.success({ title: 'Intent submitted', description: 'The organizer will contact you for drop-off details.' });
       setInKindSummary('');
       setInKindQuantity('');
       setInKindNotes('');
       setDonationMode(null);
       setIsSubmitting(false);
     } catch {
-      setError('An error occurred while submitting your intent');
+      const message = 'An error occurred while submitting your intent';
+      setError(message);
+      notify.error({ title: 'Submission failed', description: message });
       setIsSubmitting(false);
     }
   };
@@ -163,7 +182,9 @@ export function DonationDonorPanel({
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+    <>
+      {isSubmitting && <PageLoaderOverlay label="Processing donation..." />}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">Support This Campaign</h3>
         <p className="text-sm text-gray-600 mb-4">
@@ -338,7 +359,11 @@ export function DonationDonorPanel({
         </div>
 
         {donorLoading ? (
-          <p className="text-xs text-gray-500">Loading donors...</p>
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={`donor-row-${index}`} className="h-10 w-full" />
+            ))}
+          </div>
         ) : donors.length === 0 ? (
           <p className="text-xs text-gray-500">No paid donations yet.</p>
         ) : (
@@ -362,6 +387,7 @@ export function DonationDonorPanel({
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

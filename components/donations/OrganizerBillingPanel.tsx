@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { callApiAction } from '@/lib/api/action-client';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface OrganizerBillingAccount {
   id: string;
@@ -106,7 +107,17 @@ export function OrganizerBillingPanel() {
   if (loading) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <p className="text-gray-600">Loading billing information...</p>
+        <div className="space-y-3">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={`balance-skeleton-${index}`} className="h-24 w-full" />
+            ))}
+          </div>
+          <Skeleton className="h-10 w-44" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
       </div>
     );
   }

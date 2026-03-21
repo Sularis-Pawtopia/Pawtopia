@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 type CreateMode = 'event' | 'donation';
 
@@ -107,7 +109,9 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
       try {
         mediaUrls = await uploadEventImages(selectedFiles);
       } catch (uploadError: any) {
-        setError(uploadError?.message || 'Failed to upload event images');
+        const message = uploadError?.message || 'Failed to upload event images';
+        setError(message);
+        notify.error({ title: 'Upload failed', description: message });
         return;
       }
 
@@ -167,17 +171,22 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
       const result = await callApiAction('events', 'createEvent', [payload]);
 
       if (!result.success) {
-        setError(result.error || 'Failed to create event');
+        const message = result.error || 'Failed to create event';
+        setError(message);
+        notify.error({ title: 'Creation failed', description: message });
         return;
       }
 
+      notify.success({ title: mode === 'event' ? 'Event created' : 'Donation drive created' });
       router.push('/events');
       router.refresh();
     });
   };
 
   return (
-    <form onSubmit={onSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+    <>
+      {isPending && <PageLoaderOverlay label="Creating post..." />}
+      <form onSubmit={onSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
       {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-2 text-sm">{error}</div>}
 
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-1 grid grid-cols-2 gap-1">
@@ -481,6 +490,7 @@ export function EventCreateForm({ initialMode = 'event' }: EventCreateFormProps)
           {isPending ? 'Creating...' : mode === 'event' ? 'Create Event' : 'Create Donation Drive'}
         </button>
       </div>
-    </form>
+      </form>
+    </>
   );
 }

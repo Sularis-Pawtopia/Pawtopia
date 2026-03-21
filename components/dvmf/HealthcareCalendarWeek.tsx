@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
 
 interface HealthcareCalendarWeekProps {
   initialCalendarData: {
@@ -182,7 +183,9 @@ export function HealthcareCalendarWeek({ initialCalendarData }: HealthcareCalend
     startTransition(async () => {
       const result = await callApiAction<any>('healthcare', 'getDvmfHealthcareCalendar', [nextView, targetIso]);
       if (!result.success || result.error) {
-        setError(result.error || 'Failed to load healthcare calendar week');
+        const message = result.error || 'Failed to load healthcare calendar week';
+        setError(message);
+        notify.error({ title: 'Calendar load failed', description: message });
         return;
       }
       setView(nextView);
@@ -194,7 +197,9 @@ export function HealthcareCalendarWeek({ initialCalendarData }: HealthcareCalend
     const targetIso = calendarData?.period_start || toReferenceIsoAtNoon(periodStart);
     const result = await callApiAction<any>('healthcare', 'getDvmfHealthcareCalendar', [view, targetIso]);
     if (!result.success || result.error) {
-      setStatusActionError(result.error || 'Failed to refresh calendar data');
+      const message = result.error || 'Failed to refresh calendar data';
+      setStatusActionError(message);
+      notify.error({ title: 'Refresh failed', description: message });
       return;
     }
     setCalendarData(result.data);
@@ -218,7 +223,9 @@ export function HealthcareCalendarWeek({ initialCalendarData }: HealthcareCalend
     if (!selectedAppointment?.id) return;
 
     if (decision === 'mark_cancelled' && !cancellationReason.trim()) {
-      setStatusActionError('Cancellation reason is required so the client can see why it was cancelled.');
+      const message = 'Cancellation reason is required so the client can see why it was cancelled.';
+      setStatusActionError(message);
+      notify.error({ title: 'Cancellation requires reason', description: message });
       return;
     }
 
@@ -231,7 +238,9 @@ export function HealthcareCalendarWeek({ initialCalendarData }: HealthcareCalend
       ]);
 
       if (!result.success || result.error) {
-        setStatusActionError(result.error || 'Failed to update appointment status');
+        const message = result.error || 'Failed to update appointment status';
+        setStatusActionError(message);
+        notify.error({ title: 'Status update failed', description: message });
         return;
       }
 
@@ -242,6 +251,14 @@ export function HealthcareCalendarWeek({ initialCalendarData }: HealthcareCalend
       setSelectedAppointment(merged);
 
       await refreshCurrentCalendar();
+
+      if (decision === 'mark_paid') {
+        notify.success({ title: 'Appointment marked paid' });
+      } else if (decision === 'mark_completed') {
+        notify.success({ title: 'Appointment marked completed' });
+      } else {
+        notify.success({ title: 'Appointment cancelled' });
+      }
 
       if (decision === 'mark_cancelled') {
         closeAppointmentDetails();

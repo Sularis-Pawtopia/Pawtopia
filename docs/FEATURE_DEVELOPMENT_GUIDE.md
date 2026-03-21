@@ -62,7 +62,25 @@ Before merging any feature, verify all of the following:
 - Avoid implicit `any`; use explicit types at call sites.
 - Keep optimistic updates resilient to API failure.
 
-## 8) Testing and Validation Workflow
+## 8) UX Feedback Standards (Required)
+
+- Use Sileo for all toast notifications via `lib/ui/notify.ts`.
+- Do not use browser `alert()` for user feedback.
+- For async actions, show toast feedback for:
+- Validation failures that block submit.
+- API/server failures.
+- Successful create/update/delete operations.
+- Keep inline validation text for form fields, but use toast for cross-form/system feedback.
+- Mount a single app-level toaster in providers using `sileo`.
+- Use the shared Lottie loader (`components/ui/CatLoader.tsx`) for blocking flows only:
+- Route transitions and redirect waits.
+- Full-page blocking submit actions (for example: authentication, onboarding submit, final checkout submit).
+- Use skeleton loaders for non-blocking in-page data states:
+- Initial list/grid/table/timeline loading.
+- Section refreshes and tab content fetches.
+- Never ship plain "Loading..." text by itself for user-facing loading states.
+
+## 9) Testing and Validation Workflow
 
 Minimum validation before commit:
 
@@ -78,7 +96,7 @@ Recommended command sequence:
 3. `npx supabase db reset` (when migrations/policies changed)
 4. Manual role-flow smoke test (regular user, adopter, shelter, ngo, dvmf)
 
-## 9) Definition of Done for New Features
+## 10) Definition of Done for New Features
 
 A feature is done only if:
 
@@ -88,8 +106,9 @@ A feature is done only if:
 - Migrations are additive and replay cleanly.
 - Affected user flows are manually smoke-tested.
 - Docs are updated (README or docs folder) when behavior changes.
+- UX feedback standards are followed (Sileo toasts + loader matrix: skeletons for in-page fetch, `CatLoader` for blocking transitions/actions).
 
-## 10) Common Anti-Patterns to Avoid
+## 11) Common Anti-Patterns to Avoid
 
 - Client component importing from `lib/actions/*`.
 - Public URL usage for private documents.
@@ -97,8 +116,11 @@ A feature is done only if:
 - Role checks only in UI but not in server logic.
 - Updating old migrations instead of creating new ones.
 - Broad storage SELECT policies without clear reason.
+- Using `alert()` instead of Sileo notifications.
+- Shipping new loading states as plain text without skeleton or loader UI.
+- Using full-page loader overlays for non-blocking list/section fetches.
 
-## 11) Feature PR Template (Quick Copy)
+## 12) Feature PR Template (Quick Copy)
 
 Use this in your PR description:
 
@@ -107,6 +129,7 @@ Use this in your PR description:
 - Security: auth/ownership/role/RLS/storage changes
 - Migration(s): filenames and purpose
 - UX impact: routes/components touched
+- UX feedback: Sileo toasts + loader matrix coverage (skeletons vs `CatLoader`) for new/changed flows
 - Validation: diagnostics/tests/manual checks performed
 - Risks/Follow-ups: anything deferred
 

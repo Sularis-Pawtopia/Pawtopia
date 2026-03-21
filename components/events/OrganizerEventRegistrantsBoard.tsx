@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 interface OrganizerEventRegistrantsBoardProps {
   organizerId: string;
@@ -67,7 +69,9 @@ export function OrganizerEventRegistrantsBoard({
       if (!active) return;
 
       if (!result.success) {
-        setError(result.error || 'Failed to load organizer events.');
+        const message = result.error || 'Failed to load organizer events.';
+        setError(message);
+        notify.error({ title: 'Load failed', description: message });
         return;
       }
 
@@ -96,12 +100,16 @@ export function OrganizerEventRegistrantsBoard({
     setLoading(false);
 
     if (!participantsResult.success) {
-      setError(participantsResult.error || 'Failed to load participants.');
+      const message = participantsResult.error || 'Failed to load participants.';
+      setError(message);
+      notify.error({ title: 'Load failed', description: message });
       return;
     }
 
     if (!volunteersResult.success) {
-      setError(volunteersResult.error || 'Failed to load volunteers.');
+      const message = volunteersResult.error || 'Failed to load volunteers.';
+      setError(message);
+      notify.error({ title: 'Load failed', description: message });
       return;
     }
 
@@ -118,9 +126,12 @@ export function OrganizerEventRegistrantsBoard({
     const result = await callApiAction<any>('events', 'reviewParticipantRegistration', [attendeeId, decision]);
     setActionPendingId(null);
     if (!result.success) {
-      setError(result.error || 'Failed to update participant registration.');
+      const message = result.error || 'Failed to update participant registration.';
+      setError(message);
+      notify.error({ title: 'Review failed', description: message });
       return;
     }
+    notify.success({ title: `Participant ${decision}` });
     await loadRegistrants(selectedEventId);
   };
 
@@ -129,9 +140,12 @@ export function OrganizerEventRegistrantsBoard({
     const result = await callApiAction<any>('volunteer', 'reviewEventVolunteer', [applicationId, { status }]);
     setActionPendingId(null);
     if (!result.success) {
-      setError(result.error || 'Failed to update volunteer application.');
+      const message = result.error || 'Failed to update volunteer application.';
+      setError(message);
+      notify.error({ title: 'Review failed', description: message });
       return;
     }
+    notify.success({ title: `Volunteer ${status}` });
     await loadRegistrants(selectedEventId);
   };
 
@@ -206,7 +220,20 @@ export function OrganizerEventRegistrantsBoard({
           )}
 
           {loading ? (
-            <p className="text-sm text-gray-500">Loading registrants...</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-44" />
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={`participant-skeleton-${index}`} className="h-20 w-full" />
+                ))}
+              </div>
+              <div className="space-y-3">
+                <Skeleton className="h-6 w-44" />
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={`volunteer-skeleton-${index}`} className="h-20 w-full" />
+                ))}
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div className="space-y-4">

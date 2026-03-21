@@ -2,6 +2,8 @@
 
 import { useMemo, useState, useTransition, type FormEvent } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 interface HealthcareBookingCardProps {
   initialBranches: any[];
@@ -54,27 +56,37 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
     setSuccess(null);
 
     if (!selectedBranchId) {
-      setError('Please choose a DVMF branch first.');
+      const message = 'Please choose a DVMF branch first.';
+      setError(message);
+      notify.error({ title: 'Incomplete request', description: message });
       return;
     }
 
     if (!selectedService) {
-      setError('Please choose a branch service.');
+      const message = 'Please choose a branch service.';
+      setError(message);
+      notify.error({ title: 'Incomplete request', description: message });
       return;
     }
 
     if (!selectedDate) {
-      setError('Please choose an appointment date.');
+      const message = 'Please choose an appointment date.';
+      setError(message);
+      notify.error({ title: 'Incomplete request', description: message });
       return;
     }
 
     if (!selectedTime) {
-      setError('Please choose a preferred time.');
+      const message = 'Please choose a preferred time.';
+      setError(message);
+      notify.error({ title: 'Incomplete request', description: message });
       return;
     }
 
     if (!selectedPetId) {
-      setError('Please select your pet.');
+      const message = 'Please select your pet.';
+      setError(message);
+      notify.error({ title: 'Incomplete request', description: message });
       return;
     }
 
@@ -92,11 +104,14 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
       ]);
 
       if (!result.success || result.error) {
-        setError(result.error || 'Failed to submit healthcare appointment request');
+        const message = result.error || 'Failed to submit healthcare appointment request';
+        setError(message);
+        notify.error({ title: 'Request failed', description: message });
         return;
       }
 
       setSuccess('Healthcare appointment request submitted for DVMF review.');
+      notify.success({ title: 'Request submitted', description: 'Healthcare appointment request sent for DVMF review.' });
       setReason('');
       setNotes('');
       setSelectedDate('');
@@ -126,7 +141,9 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
     const species = String(formData.get('species') || '').trim();
 
     if (!name || !species) {
-      setAddPetError('Pet name and species are required.');
+      const message = 'Pet name and species are required.';
+      setAddPetError(message);
+      notify.error({ title: 'Pet creation failed', description: message });
       return;
     }
 
@@ -160,7 +177,9 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
 
       const result = await callApiAction<any>('pets', 'createAdopterPet', [payload, []]);
       if (!result.success || result.error || !result.data) {
-        setAddPetError(result.error || 'Failed to add pet');
+        const message = result.error || 'Failed to add pet';
+        setAddPetError(message);
+        notify.error({ title: 'Pet creation failed', description: message });
         return;
       }
 
@@ -173,12 +192,15 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
       setSelectedPetId(newPet.id);
       setShowAddPetModal(false);
       setSuccess('Pet added successfully. You can now use it for healthcare requests.');
+      notify.success({ title: 'Pet added', description: 'You can now use this pet for healthcare requests.' });
       setTimeout(() => setSuccess(null), 2500);
     });
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
+    <>
+      {isPending && <PageLoaderOverlay label="Submitting healthcare request..." />}
+      <div className="bg-white rounded-xl border border-gray-200 p-5">
       <h3 className="text-sm font-semibold text-gray-900 mb-1">Book DVMF Healthcare Service</h3>
       <p className="text-xs text-gray-500 mb-4">Select your pet, service, and slot. DVMF approval is required before confirmation.</p>
 
@@ -446,6 +468,7 @@ export function HealthcareBookingCard({ initialBranches, initialServices, initia
           </div>
         </div>
       ) : null}
-    </div>
+      </div>
+    </>
   );
 }

@@ -3,6 +3,8 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 interface ProfilePhotoEditorProps {
   profile: any;
@@ -33,7 +35,9 @@ export function ProfilePhotoEditor({ profile, isOpen, onClose }: ProfilePhotoEdi
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      setError('Please select an image file');
+      const message = 'Please select an image file';
+      setError(message);
+      notify.error({ title: 'Invalid file', description: message });
       return;
     }
 
@@ -41,7 +45,9 @@ export function ProfilePhotoEditor({ profile, isOpen, onClose }: ProfilePhotoEdi
     const maxSize = type === 'cover' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
     if (file.size > maxSize) {
       const limit = type === 'cover' ? '10MB' : '5MB';
-      setError(`Image size must be less than ${limit}`);
+      const message = `Image size must be less than ${limit}`;
+      setError(message);
+      notify.error({ title: 'Invalid file size', description: message });
       return;
     }
 
@@ -72,7 +78,9 @@ export function ProfilePhotoEditor({ profile, isOpen, onClose }: ProfilePhotoEdi
 
   const handleSave = async () => {
     if (!avatarFile && !coverFile) {
-      setError('Please select at least one photo to update');
+      const message = 'Please select at least one photo to update';
+      setError(message);
+      notify.error({ title: 'No changes selected', description: message });
       return;
     }
 
@@ -93,15 +101,19 @@ export function ProfilePhotoEditor({ profile, isOpen, onClose }: ProfilePhotoEdi
       const result = await callApiAction('profile', 'updateUserPhotos', [profile.id, updates]);
       if (result.error) {
         setError(result.error);
+        notify.error({ title: 'Photo update failed', description: result.error });
       } else {
         setSuccess(true);
+        notify.success({ title: 'Photos updated' });
         setTimeout(() => {
           router.refresh();
           onClose();
         }, 1000);
       }
     } catch (err: any) {
-      setError(err?.message || 'Upload failed');
+      const message = err?.message || 'Upload failed';
+      setError(message);
+      notify.error({ title: 'Photo update failed', description: message });
     } finally {
       setIsLoading(false);
     }
@@ -111,6 +123,7 @@ export function ProfilePhotoEditor({ profile, isOpen, onClose }: ProfilePhotoEdi
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {isLoading && <PageLoaderOverlay label="Uploading photos..." />}
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">Update Profile Photos</h2>
@@ -226,15 +239,7 @@ export function ProfilePhotoEditor({ profile, isOpen, onClose }: ProfilePhotoEdi
               disabled={isLoading || (!avatarFile && !coverFile)}
               className="flex-1 bg-primary-500 text-white py-2.5 rounded-lg font-semibold hover:bg-primary-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm flex items-center justify-center gap-2"
             >
-              {isLoading ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Uploading...
-                </>
-              ) : 'Save Photos'}
+              {isLoading ? 'Uploading...' : 'Save Photos'}
             </button>
           </div>
         </div>

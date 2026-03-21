@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 const ngoOnboardingSchema = z.object({
   organization_name: z.string().min(2, 'Organization name is required'),
@@ -74,9 +76,13 @@ export function NgoOnboardingForm({ userId, existingOrgName }: NgoOnboardingForm
     try {
       const result = await callApiAction('onboarding', 'submitNgoOnboarding', [userId, data]);
       if (result?.error) {
+        notify.error({ title: 'Onboarding failed', description: result.error });
         console.error(result.error);
+      } else {
+        notify.success({ title: 'Registration complete', description: 'Your NGO profile has been submitted.' });
       }
     } catch (error) {
+      notify.error({ title: 'Onboarding failed', description: 'Failed to submit NGO onboarding form.' });
       console.error('Failed to submit:', error);
     } finally {
       setIsSubmitting(false);
@@ -84,7 +90,9 @@ export function NgoOnboardingForm({ userId, existingOrgName }: NgoOnboardingForm
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <>
+      {isSubmitting && <PageLoaderOverlay label="Submitting registration..." />}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Organization Info */}
       <div className="space-y-4">
         <h3 className="font-semibold text-lg">Organization Information</h3>
@@ -215,6 +223,7 @@ export function NgoOnboardingForm({ userId, existingOrgName }: NgoOnboardingForm
       <p className="text-sm text-gray-500 text-center">
         Your organization will be verified by our team. You can start posting events immediately.
       </p>
-    </form>
+      </form>
+    </>
   );
 }

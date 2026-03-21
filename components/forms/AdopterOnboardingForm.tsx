@@ -2,6 +2,9 @@
 
 import { useState, useRef } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { CatLoader } from '@/components/ui/CatLoader';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 interface AdopterFormState {
   // Step 1 - Personal
@@ -268,7 +271,9 @@ export function AdopterOnboardingForm() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        setError('Not authenticated');
+        const message = 'Not authenticated';
+        setError(message);
+        notify.error({ title: 'Submission failed', description: message });
         setIsLoading(false);
         return;
       }
@@ -325,16 +330,20 @@ export function AdopterOnboardingForm() {
 
       if (result?.error) {
         setError(result.error);
+        notify.error({ title: 'Onboarding failed', description: result.error });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         setSubmitSuccess(true);
+        notify.success({ title: 'Profile submitted', description: 'Your adopter profile has been saved.' });
         setTimeout(() => {
           window.location.href = '/dashboard';
         }, 1500);
       }
     } catch (err: any) {
       console.error('Adopter onboarding error:', err);
-      setError(err?.message || 'An unexpected error occurred');
+      const message = err?.message || 'An unexpected error occurred';
+      setError(message);
+      notify.error({ title: 'Onboarding failed', description: message });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsLoading(false);
@@ -386,6 +395,8 @@ export function AdopterOnboardingForm() {
 
   return (
     <div>
+      {isLoading && !submitSuccess && <PageLoaderOverlay label="Submitting profile..." />}
+
       {/* Success Overlay */}
       {submitSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -400,10 +411,7 @@ export function AdopterOnboardingForm() {
               Welcome to Pawtopia! You&apos;re being redirected to your feed.
             </p>
             <div className="flex items-center justify-center gap-2 text-primary-600">
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <CatLoader size={56} className="-my-4" />
               <span className="text-sm font-medium">Redirecting...</span>
             </div>
           </div>
@@ -1032,17 +1040,7 @@ export function AdopterOnboardingForm() {
               disabled={isLoading}
               className="flex-1 bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              {isLoading ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Submitting...
-                </>
-              ) : (
-                'Submit'
-              )}
+              {isLoading ? 'Submitting...' : 'Submit'}
             </button>
           </div>
         </div>
