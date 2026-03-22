@@ -2,7 +2,7 @@ export function AdvocaciesSection() {
   const advocacies = [
     {
       icon: '🏡',
-      title: 'Adopt, Don&apos;t Shop',
+      title: 'Adopt, Don\'t Shop',
       description: 'Promote pet adoption to give stray and homeless animals a second chance at life.',
       color: 'from-primary-500 to-primary-600'
     },
@@ -28,7 +28,7 @@ export function AdvocaciesSection() {
             Our Advocacies
           </h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            We&apos;re committed to creating a better world for every pet
+            We're committed to creating a better world for every pet
           </p>
         </div>
 

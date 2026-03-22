@@ -26,6 +26,11 @@ interface EventItem {
 interface DvmfEventsTabProps {
   events: EventItem[];
   organizerId?: string;
+  headerTitle?: string;
+  headerDescription?: string;
+  createButtonLabel?: string;
+  emptyMessage?: string;
+  listTitle?: string;
 }
 
 const dateTimeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -45,7 +50,15 @@ function formatDateTimeMDY(value?: string) {
   return `${dateTimeFormatter.format(date)} PHT`;
 }
 
-export function DvmfEventsTab({ events, organizerId }: DvmfEventsTabProps) {
+export function DvmfEventsTab({
+  events,
+  organizerId,
+  headerTitle = 'Drives and Community Events',
+  headerDescription = 'Publish organizer events to the public feed and events tab instantly.',
+  createButtonLabel = 'Create Drive/Event',
+  emptyMessage = 'No events yet.',
+  listTitle = 'Recent Events & Drives',
+}: DvmfEventsTabProps) {
   void organizerId;
 
   const [eventsState, setEventsState] = useState<EventItem[]>(events);
@@ -149,27 +162,27 @@ export function DvmfEventsTab({ events, organizerId }: DvmfEventsTabProps) {
     <div className="space-y-6">
       <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Drives and Community Events</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{headerTitle}</h3>
           <p className="text-sm text-gray-600 mt-1">
-            Publish DVMF drives to the public feed and events tab instantly.
+            {headerDescription}
           </p>
         </div>
         <Link
           href="/events/new"
           className="inline-flex items-center justify-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
         >
-          Create Drive/Event
+          {createButtonLabel}
         </Link>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Recent DVMF Events</h3>
+          <h3 className="font-semibold text-gray-900">{listTitle}</h3>
           <span className="text-sm text-gray-500">{eventsState.length} total</span>
         </div>
         <div className="divide-y divide-gray-100">
           {eventsState.length === 0 ? (
-            <div className="px-5 py-8 text-sm text-gray-500">No DVMF events yet.</div>
+            <div className="px-5 py-8 text-sm text-gray-500">{emptyMessage}</div>
           ) : (
             eventsState.map((event) => (
               <div key={event.id} className="px-5 py-4 hover:bg-gray-50 transition">

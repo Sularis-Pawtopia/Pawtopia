@@ -13,12 +13,24 @@ export type CreateEventInput = {
   end_date?: string;
   location: string;
   description: string;
+  post_title?: string;
+  post_tags?: string[];
   max_attendees?: number;
   registration_required?: boolean;
   participant_approval_mode?: 'auto' | 'manual';
   is_volunteer_event?: boolean;
   volunteers_needed?: number;
   media_urls?: string[];
+  donation_monetary_enabled?: boolean;
+  donation_in_kind_enabled?: boolean;
+  donation_goal_php?: number;
+  donation_beneficiary?: string;
+  donation_notes?: string;
+  donation_dropoff_place_id?: string;
+  donation_dropoff_address?: string;
+  donation_dropoff_lat?: number;
+  donation_dropoff_lng?: number;
+  donation_dropoff_map_url?: string;
 };
 
 type RegistrationStatus = 'pending' | 'registered' | 'waitlisted' | 'cancelled';
@@ -163,7 +175,7 @@ export async function createEventService(formData: CreateEventInput) {
 
     const { data: profile } = await supabase
       .from('users')
-      .select('role')
+      .select('role, city, state')
       .eq('id', user.id)
       .single();
 
@@ -171,13 +183,22 @@ export async function createEventService(formData: CreateEventInput) {
       return { success: false, error: 'Only verified organizers can create events' };
     }
 
+    if (!profile.city && !profile.state) {
+      return {
+        success: false,
+        error: 'Please complete your profile location (city or state) before creating events.',
+      };
+    }
+
     const { data: post, error: postError } = await supabase
       .from('posts')
       .insert({
         user_id: user.id,
         post_type: 'event',
+        title: formData.post_title || formData.event_name,
         description: formData.description,
         media_urls: formData.media_urls || [],
+        tags: formData.post_tags || [],
       })
       .select()
       .single();
@@ -203,6 +224,25 @@ export async function createEventService(formData: CreateEventInput) {
         participant_approval_mode: formData.participant_approval_mode || 'auto',
         is_volunteer_event: formData.is_volunteer_event || false,
         volunteers_needed: formData.volunteers_needed || 0,
+        donation_monetary_enabled:
+          formData.event_type === 'donation_drive' ? formData.donation_monetary_enabled !== false : false,
+        donation_in_kind_enabled:
+          formData.event_type === 'donation_drive' ? Boolean(formData.donation_in_kind_enabled) : false,
+        donation_goal_php:
+          formData.event_type === 'donation_drive' ? formData.donation_goal_php || null : null,
+        donation_beneficiary:
+          formData.event_type === 'donation_drive' ? formData.donation_beneficiary || null : null,
+        donation_notes: formData.event_type === 'donation_drive' ? formData.donation_notes || null : null,
+        donation_dropoff_place_id:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_place_id || null : null,
+        donation_dropoff_address:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_address || null : null,
+        donation_dropoff_lat:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_lat || null : null,
+        donation_dropoff_lng:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_lng || null : null,
+        donation_dropoff_map_url:
+          formData.event_type === 'donation_drive' ? formData.donation_dropoff_map_url || null : null,
       } as any)
       .select()
       .single();

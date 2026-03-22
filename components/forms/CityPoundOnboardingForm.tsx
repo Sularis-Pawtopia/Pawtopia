@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 const cityPoundOnboardingSchema = z.object({
   organization_name: z.string().min(2, 'Organization name is required'),
@@ -87,9 +89,16 @@ export function CityPoundOnboardingForm({
     try {
       const result = await callApiAction('onboarding', 'submitCityPoundOnboarding', [userId, data]);
       if (result?.error) {
+        notify.error({ title: 'Onboarding failed', description: result.error });
         console.error(result.error);
+      } else {
+        notify.success({ title: 'Registration complete', description: 'Your DVMF profile has been submitted.' });
+        if (typeof result?.redirectTo === 'string') {
+          window.location.href = result.redirectTo;
+        }
       }
     } catch (error) {
+      notify.error({ title: 'Onboarding failed', description: 'Failed to submit city pound onboarding form.' });
       console.error('Failed to submit:', error);
     } finally {
       setIsSubmitting(false);
@@ -97,7 +106,9 @@ export function CityPoundOnboardingForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <>
+      {isSubmitting && <PageLoaderOverlay label="Submitting registration..." />}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Facility Info */}
       <div className="space-y-4">
         <h3 className="font-semibold text-lg">Facility Information</h3>
@@ -246,6 +257,7 @@ export function CityPoundOnboardingForm({
       <p className="text-sm text-gray-500 text-center">
         Your facility will be verified by our team. This typically takes 1-2 business days.
       </p>
-    </form>
+      </form>
+    </>
   );
 }

@@ -7,9 +7,19 @@ import { FeedList } from '@/components/feed/FeedList';
 import { CreatePostButton } from '@/components/feed/CreatePostButton';
 import { SuggestedShelters } from '@/components/SuggestedShelters';
 import { MyAdoptionRequests } from '@/components/pets/MyAdoptionRequests';
-import { OrganizerEventRegistrantsBoard } from '@/components/events/OrganizerEventRegistrantsBoard';
+import {
+  syncMayaPaymentStatus,
+} from '@/lib/actions/healthcare.actions';
+import Link from 'next/link';
 
-export default async function DashboardPage() {
+type DashboardPageProps = {
+  searchParams?: {
+    healthcarePayment?: string;
+    appointmentId?: string;
+  };
+};
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const user = await getCurrentUser();
   
   if (!user) {
@@ -22,6 +32,16 @@ export default async function DashboardPage() {
   }
 
   const isPendingShelter = user.role === 'shelter' && !user.is_verified;
+  const canUseHealthcareRequesterFlow = ['adopter', 'volunteer', 'regular_user'].includes(user.role);
+
+  if (
+    canUseHealthcareRequesterFlow &&
+    searchParams?.healthcarePayment === 'success' &&
+    typeof searchParams?.appointmentId === 'string' &&
+    searchParams.appointmentId.length > 0
+  ) {
+    await syncMayaPaymentStatus(searchParams.appointmentId, { assumePaidOnSuccessReturn: true });
+  }
 
   const [{ data: initialPosts }, adoptionResult] = await Promise.all([
     getFeedPosts({ limit: 10 }),
@@ -66,20 +86,11 @@ export default async function DashboardPage() {
                 </p>
               </div>
 
-              {!isPendingShelter && <CreatePostButton />}
+              {!isPendingShelter && <CreatePostButton userRole={user.role} />}
               
               <div className="mt-6">
                 <FeedList initialPosts={initialPosts || []} currentUserId={user.id} userRole={isPendingShelter ? 'user' : user.role} />
               </div>
-
-              {user.role === 'ngo' && (
-                <div className="mt-6">
-                  <OrganizerEventRegistrantsBoard
-                    organizerId={user.id}
-                    title="NGO Event Registrants"
-                  />
-                </div>
-              )}
             </div>
 
             {/* Sidebar */}
@@ -95,6 +106,22 @@ export default async function DashboardPage() {
                       </span>
                     </h3>
                     <MyAdoptionRequests requests={adoptionRequests} />
+                  </div>
+                )}
+
+                {canUseHealthcareRequesterFlow && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-orange-600">Healthcare Desk</p>
+                    <h3 className="mt-1 text-lg font-semibold text-gray-900">Book and Manage Pet Healthcare</h3>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Request DVMF services from the dedicated healthcare page with a cleaner booking flow and payment tracking.
+                    </p>
+                    <Link
+                      href="/healthcare"
+                      className="inline-flex mt-4 items-center px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600"
+                    >
+                      Open Healthcare Page
+                    </Link>
                   </div>
                 )}
 
@@ -132,6 +159,21 @@ export default async function DashboardPage() {
                     <div className="mt-4 pt-4 border-t border-gray-100">
                       <p className="text-xs text-gray-500">Estimated review time: 1–3 business days</p>
                     </div>
+                  </div>
+                )}
+
+                {user.role === 'ngo' && (
+                  <div className="bg-white rounded-xl border border-gray-200 p-5">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2">NGO Insights</h3>
+                    <p className="text-sm text-gray-600">
+                      This dashboard is optimized for overview and discovery. Manage event registrants within each event page.
+                    </p>
+                    <Link
+                      href="/dashboard/ngo-operations"
+                      className="inline-flex mt-3 items-center px-3 py-2 rounded-lg bg-primary-600 text-white text-xs font-medium hover:bg-primary-700"
+                    >
+                      Open NGO Operations
+                    </Link>
                   </div>
                 )}
 

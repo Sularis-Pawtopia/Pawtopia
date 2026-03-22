@@ -9,6 +9,7 @@ interface AdopterProfileInfoProps {
 export function AdopterProfileInfo({ profile }: AdopterProfileInfoProps) {
   const p = profile.profile;
   const isOwner = profile.isOwner;
+  const canViewSensitive = isOwner;
 
   if (!p) {
     return (
@@ -52,13 +53,18 @@ export function AdopterProfileInfo({ profile }: AdopterProfileInfoProps) {
       <SectionCard title="Personal Information">
         <InfoRow label="Full Name" value={`${p.first_name || ''} ${p.mi ? p.mi + '.' : ''} ${p.last_name || ''}`.trim()} />
         <InfoRow label="Gender" value={p.gender ? p.gender.charAt(0).toUpperCase() + p.gender.slice(1).replace('_', ' ') : null} />
-        <InfoRow label="Birth Date" value={p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null} />
-        <InfoRow label="Civil Status" value={p.civil_status ? p.civil_status.charAt(0).toUpperCase() + p.civil_status.slice(1) : null} />
-        <InfoRow label="Contact Number" value={isOwner ? p.contact_number : p.contact_number ? '•••••••' + p.contact_number.slice(-4) : null} />
-        <InfoRow label="Email" value={isOwner ? p.email : p.email ? p.email.replace(/(.{2}).*(@.*)/, '$1***$2') : null} />
-        <InfoRow label="Address" value={isOwner ? profile.address : profile.city || 'Not specified'} />
-        <InfoRow label="Occupation" value={p.occupation} />
-        <InfoRow label="Business Name" value={p.business_name} />
+        <InfoRow label="Email" value={p.email || null} />
+        <InfoRow label="Location" value={[profile.city, profile.state].filter(Boolean).join(', ') || null} />
+        {canViewSensitive && (
+          <>
+            <InfoRow label="Birth Date" value={p.date_of_birth ? new Date(p.date_of_birth).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null} />
+            <InfoRow label="Civil Status" value={p.civil_status ? p.civil_status.charAt(0).toUpperCase() + p.civil_status.slice(1) : null} />
+            <InfoRow label="Contact Number" value={p.contact_number} />
+            <InfoRow label="Address" value={profile.address} />
+            <InfoRow label="Occupation" value={p.occupation} />
+            <InfoRow label="Business Name" value={p.business_name} />
+          </>
+        )}
         {p.social_media_link && (
           <div className="flex justify-between py-2.5 border-b border-gray-50 last:border-0">
             <span className="text-sm text-gray-500">Social Media</span>
@@ -72,9 +78,11 @@ export function AdopterProfileInfo({ profile }: AdopterProfileInfoProps) {
       {/* Adoption Preferences */}
       <SectionCard title="Adoption Preferences">
         <InfoRow label="Looking to Adopt" value={p.looking_to_adopt ? p.looking_to_adopt.charAt(0).toUpperCase() + p.looking_to_adopt.slice(1).replace('_', ' ') : null} />
-        <InfoRow label="Specific Shelter Animal" value={p.specific_shelter_animal} />
         <InfoRow label="First Time Adopter" value={p.first_time_adopter} />
-        {p.ideal_pet_description && (
+        {canViewSensitive && p.specific_shelter_animal !== undefined && (
+          <InfoRow label="Specific Shelter Animal" value={p.specific_shelter_animal} />
+        )}
+        {canViewSensitive && p.ideal_pet_description && (
           <div className="py-2.5 border-b border-gray-50 last:border-0">
             <span className="text-sm text-gray-500 block mb-1">Ideal Pet Description</span>
             <p className="text-sm text-gray-900">{p.ideal_pet_description}</p>
@@ -83,26 +91,29 @@ export function AdopterProfileInfo({ profile }: AdopterProfileInfoProps) {
       </SectionCard>
 
       {/* What prompted you */}
-      {p.prompted_by && p.prompted_by.length > 0 && (
+      {canViewSensitive && p.prompted_by && p.prompted_by.length > 0 && (
         <SectionCard title="What Prompted Adoption">
           <TagList items={p.prompted_by} />
         </SectionCard>
       )}
 
       {/* Living Situation */}
-      <SectionCard title="Living Situation">
-        <InfoRow label="Building Type" value={p.building_type ? p.building_type.charAt(0).toUpperCase() + p.building_type.slice(1) : null} />
-        <InfoRow label="Renting" value={p.do_you_rent} />
-        {p.live_with && p.live_with.length > 0 && (
-          <div className="py-2.5 border-b border-gray-50 last:border-0">
-            <span className="text-sm text-gray-500 block mb-1">Lives With</span>
-            <TagList items={p.live_with} />
-          </div>
-        )}
-        <InfoRow label="Household Allergic to Animals" value={p.household_allergic} />
-      </SectionCard>
+      {canViewSensitive && (
+        <SectionCard title="Living Situation">
+          <InfoRow label="Building Type" value={p.building_type ? p.building_type.charAt(0).toUpperCase() + p.building_type.slice(1) : null} />
+          <InfoRow label="Renting" value={p.do_you_rent} />
+          {p.live_with && p.live_with.length > 0 && (
+            <div className="py-2.5 border-b border-gray-50 last:border-0">
+              <span className="text-sm text-gray-500 block mb-1">Lives With</span>
+              <TagList items={p.live_with} />
+            </div>
+          )}
+          <InfoRow label="Household Allergic to Animals" value={p.household_allergic} />
+        </SectionCard>
+      )}
 
       {/* Pet Care Readiness */}
+      {canViewSensitive && (
       <SectionCard title="Pet Care Readiness">
         {p.pet_caretaker && (
           <div className="py-2.5 border-b border-gray-50">
@@ -143,9 +154,10 @@ export function AdopterProfileInfo({ profile }: AdopterProfileInfoProps) {
         <InfoRow label="Family Supports Adoption" value={p.family_support} />
         <InfoRow label="Had Pets Before" value={p.had_pets_before} />
       </SectionCard>
+      )}
 
       {/* Private section — only visible to owner */}
-      {isOwner && (
+      {canViewSensitive && (
         <>
           {/* Alternative Contact */}
           {p.alt_first_name && (

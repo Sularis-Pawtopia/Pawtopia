@@ -61,6 +61,47 @@ pnpm run dev
 
 Visit: `http://localhost:3000`
 
+### **Step 3.1: Configure Maya Sandbox for Healthcare Payments**
+
+Add these variables to `.env.local` for local sandbox checkout and callback testing:
+
+```env
+HEALTHCARE_PLATFORM_SERVICE_FEE_PHP=50
+NEXT_PUBLIC_HEALTHCARE_PLATFORM_SERVICE_FEE_PHP=50
+MAYA_SANDBOX_BASE_URL=https://pg-sandbox.paymaya.com
+MAYA_API_KEY=<maya_sandbox_api_key>
+MAYA_SECRET_KEY=<maya_sandbox_secret_key>
+MAYA_WEBHOOK_SECRET=<maya_webhook_secret>
+```
+
+Register your webhook callback URL in Maya sandbox:
+
+- Local with tunnel: `https://<your-tunnel-domain>/api/healthcare/webhooks/maya`
+- Validation header expected by backend: `x-maya-signature` (HMAC SHA256)
+
+### **Step 3.2: Configure Donation Drive Payments (Maya)**
+
+Add donation-specific environment values (can reuse healthcare Maya keys if desired):
+
+```env
+DONATION_MAYA_API_KEY=<donation_maya_api_key_optional>
+DONATION_MAYA_SECRET_KEY=<donation_maya_secret_key_optional>
+MAYA_DONATION_WEBHOOK_SECRET=<donation_webhook_secret_optional>
+DONATION_PROCESSOR_FEE_PHP=0
+DONATION_WITHDRAWAL_TRANSFER_FEE_PHP=0
+BILLING_ACCOUNT_ENCRYPTION_KEY=<long_random_secret>
+```
+
+Register donation webhook callback URL in Maya sandbox:
+
+- Local with tunnel: `https://<your-tunnel-domain>/api/donations/webhooks/maya`
+- Validation header expected by backend: `x-maya-signature` (HMAC SHA256)
+
+Notes:
+
+- Donation success redirects are reconciled server-side on `/events/[eventId]` using `tx` or `requestRef` fallback.
+- Webhook delivery can be delayed/unreachable in localhost environments, so redirect reconciliation is part of expected behavior.
+
 ### **Step 4: Test Authentication Flow**
 
 1. Navigate to `/auth/login` or `/auth/signup`

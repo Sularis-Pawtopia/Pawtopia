@@ -2,17 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
+import { PetIdCardDownload } from '@/components/pets/PetIdCardDownload';
 
 interface AdoptPetModalProps {
   pet: any;
   shelterProfile?: any;
+  viewerProfile?: any;
+  showIdCard?: boolean;
   viewerRole?: string | null;
   existingRequest?: { id: string; status: string; created_at?: string } | null;
   onClose: () => void;
   onSuccess?: () => void;
 }
 
-export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existingRequest: externalRequest, onClose, onSuccess }: AdoptPetModalProps) {
+export default function AdoptPetModal({ pet, shelterProfile, viewerProfile, showIdCard = false, viewerRole, existingRequest: externalRequest, onClose, onSuccess }: AdoptPetModalProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
@@ -67,15 +72,19 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
       const res: any = await callApiAction('adoption', 'createAdoptionRequest', [pet.id]);
       if (res.error) {
         setError(res.error);
+        notify.error({ title: 'Adoption request failed', description: res.error });
       } else {
         setSuccess(true);
+        notify.success({ title: 'Request submitted', description: 'Your adoption request was sent to the shelter.' });
         setTimeout(() => {
           if (onSuccess) onSuccess();
           onClose();
         }, 2000);
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to apply');
+      const message = err?.message || 'Failed to apply';
+      setError(message);
+      notify.error({ title: 'Adoption request failed', description: message });
     } finally {
       setIsLoading(false);
     }
@@ -89,8 +98,10 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
       const res: any = await callApiAction('adoption', 'cancelAdoptionRequest', [existingReq.id, cancelReason || undefined]);
       if (res.error) {
         setError(res.error);
+        notify.error({ title: 'Cancellation failed', description: res.error });
       } else {
         setCancelSuccess(true);
+        notify.success({ title: 'Request cancelled', description: 'Your adoption request was cancelled.' });
         setExistingReq(null);
         setShowCancelConfirm(false);
         setCancelReason('');
@@ -100,7 +111,9 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
         }, 2000);
       }
     } catch (err: any) {
-      setError(err?.message || 'Failed to cancel');
+      const message = err?.message || 'Failed to cancel';
+      setError(message);
+      notify.error({ title: 'Cancellation failed', description: message });
     } finally {
       setIsCancelling(false);
     }
@@ -115,6 +128,7 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      {(isLoading || isCancelling) && <PageLoaderOverlay label={isCancelling ? 'Cancelling request...' : 'Submitting request...'} />}
       <div
         className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row"
         onClick={(e) => e.stopPropagation()}
@@ -179,6 +193,8 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
                 <p className="text-sm text-gray-500 mt-1">{description}</p>
               )}
             </div>
+
+            {showIdCard && <PetIdCardDownload pet={pet} ownerContext={viewerProfile} />}
 
             {/* Quick info grid */}
             <div className="grid grid-cols-2 gap-2.5">
@@ -304,90 +320,37 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
                   </span>
                 ) : isViewerAdopter && !isViewerShelterOwner && existingReq ? (
                   /* Existing request — show status + cancel */
-                  showCancelConfirm ? (
-                    <div className="ml-auto flex flex-col items-end gap-2 w-full">
-                      <p className="text-sm text-gray-600 text-right">Are you sure you want to cancel this adoption request?</p>
-                      <textarea
-                        value={cancelReason}
-                        onChange={(e) => setCancelReason(e.target.value)}
-                        placeholder="Reason for cancellation (optional)"
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none"
-                        rows={2}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setShowCancelConfirm(false); setCancelReason(''); }}
-                          disabled={isCancelling}
-                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors"
-                        >
-                          Keep Request
-                        </button>
-                        <button
-                          onClick={handleCancelRequest}
-                          disabled={isCancelling}
-                          className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full text-sm font-semibold transition-colors disabled:opacity-50"
-                        >
-                          {isCancelling ? 'Cancelling...' : 'Confirm Cancel'}
-                        </button>
-                      </div>
+                  <div className="ml-auto flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
+                        existingReq.status === 'pending'
+                          ? 'bg-amber-100 text-amber-700'
+                          : existingReq.status === 'approved'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {existingReq.status === 'pending' ? 'Request Pending' : existingReq.status === 'approved' ? 'Approved' : existingReq.status}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {existingReq.created_at ? new Date(existingReq.created_at).toLocaleDateString() : ''}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="ml-auto flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${
-                          existingReq.status === 'pending'
-                            ? 'bg-amber-100 text-amber-700'
-                            : existingReq.status === 'approved'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {existingReq.status === 'pending' ? 'Request Pending' : existingReq.status === 'approved' ? 'Approved' : existingReq.status}
-                        </span>
-                        <span className="text-xs text-gray-400">
-                          {existingReq.created_at ? new Date(existingReq.created_at).toLocaleDateString() : ''}
-                        </span>
-                      </div>
-                      {existingReq.status === 'pending' && (
-                        <button
-                          onClick={() => setShowCancelConfirm(true)}
-                          className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-full text-sm font-medium transition-colors border border-red-200"
-                        >
-                          Cancel Request
-                        </button>
-                      )}
-                    </div>
-                  )
+                    {existingReq.status === 'pending' && (
+                      <button
+                        onClick={() => setShowCancelConfirm(true)}
+                        className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-full text-sm font-medium transition-colors border border-red-200"
+                      >
+                        Cancel Request
+                      </button>
+                    )}
+                  </div>
                 ) : isViewerAdopter && !isViewerShelterOwner ? (
-                  showConfirm ? (
-                    <div className="ml-auto flex flex-col items-end gap-2">
-                      <p className="text-sm text-gray-600 text-right">
-                        Your adopter profile information will be shared with this shelter. Continue?
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setShowConfirm(false)}
-                          disabled={isLoading}
-                          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleAdopt}
-                          disabled={isLoading || success}
-                          className="px-6 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-full text-sm font-semibold transition-colors disabled:opacity-50 shadow-sm"
-                        >
-                          {isLoading ? 'Submitting...' : 'Confirm Adoption Request'}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setShowConfirm(true)}
-                      className="ml-auto px-6 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-full text-sm font-semibold transition-colors shadow-sm"
-                    >
-                      Take Me Home
-                    </button>
-                  )
+                  <button
+                    onClick={() => setShowConfirm(true)}
+                    className="ml-auto px-6 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-full text-sm font-semibold transition-colors shadow-sm"
+                  >
+                    Take Me Home
+                  </button>
                 ) : (
                   /* Not an adopter — don't show button */
                   !isAdopted && (
@@ -401,6 +364,92 @@ export default function AdoptPetModal({ pet, shelterProfile, viewerRole, existin
           </div>
         </div>
       </div>
+
+      {showConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (!isLoading) setShowConfirm(false);
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-5" onClick={(event) => event.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Confirm Adoption Request</h3>
+            <p className="text-sm text-gray-600">
+              Your adopter profile information will be shared with this shelter. Do you want to continue?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                disabled={isLoading}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowConfirm(false);
+                  await handleAdopt();
+                }}
+                disabled={isLoading || success}
+                className="px-5 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-full text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {isLoading ? 'Submitting...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCancelConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 p-4"
+          onClick={(event) => {
+            event.stopPropagation();
+            if (!isCancelling) {
+              setShowCancelConfirm(false);
+              setCancelReason('');
+            }
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl p-5" onClick={(event) => event.stopPropagation()}>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Cancel Adoption Request</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              This will withdraw your pending request from the shelter.
+            </p>
+            <textarea
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              placeholder="Reason for cancellation (optional)"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none"
+              rows={3}
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCancelConfirm(false);
+                  setCancelReason('');
+                }}
+                disabled={isCancelling}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors"
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelRequest}
+                disabled={isCancelling}
+                className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {isCancelling ? 'Cancelling...' : 'Confirm Cancel'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

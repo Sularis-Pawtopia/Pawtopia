@@ -4,6 +4,8 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { callApiAction } from '@/lib/api/action-client';
 import { toVerificationDocumentUrl } from '@/lib/storage/verification-documents';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 type PolicyOption = 'yes' | 'no' | 'sometimes' | '';
 
@@ -142,7 +144,9 @@ export function ShelterEditForm({ profile, onCancel, onSaved }: ShelterEditFormP
     
     // Basic validation
     if (!shelterName.trim() || !contactFirstName.trim() || !contactLastName.trim()) {
-      setError('Shelter name, contact first name, and last name are required');
+      const message = 'Shelter name, contact first name, and last name are required';
+      setError(message);
+      notify.error({ title: 'Profile update failed', description: message });
       setIsLoading(false);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -196,16 +200,20 @@ export function ShelterEditForm({ profile, onCancel, onSaved }: ShelterEditFormP
       const result = await callApiAction('profile', 'updateShelterProfileByUserId', [profile.id, data]);
       if (result.error) {
         setError(result.error);
+        notify.error({ title: 'Profile update failed', description: result.error });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         setSuccess(true);
+        notify.success({ title: 'Profile updated' });
         setTimeout(() => {
           router.refresh();
           onSaved();
         }, 800);
       }
     } catch (err: any) {
-      setError(err?.message || 'An unexpected error occurred');
+      const message = err?.message || 'An unexpected error occurred';
+      setError(message);
+      notify.error({ title: 'Profile update failed', description: message });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsLoading(false);
@@ -248,7 +256,9 @@ export function ShelterEditForm({ profile, onCancel, onSaved }: ShelterEditFormP
   );
 
   return (
-    <div className="space-y-4">
+    <>
+      {isLoading && <PageLoaderOverlay label="Saving profile changes..." />}
+      <div className="space-y-4">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       )}
@@ -480,14 +490,10 @@ export function ShelterEditForm({ profile, onCancel, onSaved }: ShelterEditFormP
         </button>
         <button type="button" onClick={handleSave} disabled={isLoading}
           className="flex-1 bg-primary-500 text-white py-2.5 rounded-lg font-semibold hover:bg-primary-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-sm flex items-center justify-center gap-2">
-          {isLoading ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-              Saving...
-            </>
-          ) : 'Save Changes'}
+          {isLoading ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 import { toVerificationDocumentUrl } from '@/lib/storage/verification-documents';
 import { Check, X, Eye, Loader2, User, FileText, AlertTriangle, Clock } from 'lucide-react';
@@ -96,6 +96,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
 };
 
 export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionRequestsListProps) {
+  const [requestsState, setRequestsState] = useState<AdoptionRequest[]>(requests);
   const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [showApproveConfirm, setShowApproveConfirm] = useState<string | null>(null);
@@ -105,6 +106,10 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRequestsState(requests);
+  }, [requests]);
 
   const handleApprove = async (requestId: string) => {
     setProcessingId(requestId);
@@ -116,6 +121,19 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
       if (result.error) {
         setError(result.error);
       } else {
+        const reviewedAt = new Date().toISOString();
+        setRequestsState((prev) =>
+          prev.map((request) =>
+            request.id === requestId
+              ? {
+                ...request,
+                status: 'approved',
+                reviewed_at: reviewedAt,
+                rejection_reason: undefined,
+              }
+              : request
+          )
+        );
         setSuccessMessage('Application has been approved successfully!');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
@@ -144,6 +162,20 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
       if (result.error) {
         setError(result.error);
       } else {
+        const reviewedAt = new Date().toISOString();
+        const reason = rejectionReason.trim();
+        setRequestsState((prev) =>
+          prev.map((request) =>
+            request.id === requestId
+              ? {
+                ...request,
+                status: 'rejected',
+                reviewed_at: reviewedAt,
+                rejection_reason: reason,
+              }
+              : request
+          )
+        );
         setSuccessMessage('Application has been declined.');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
@@ -163,6 +195,32 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
       if (result.error) {
         setError(result.error);
       } else {
+        const completedRequest = requestsState.find((request) => request.id === requestId);
+        const petId = completedRequest?.pet.id;
+        const reviewedAt = new Date().toISOString();
+
+        setRequestsState((prev) =>
+          prev.map((request) => {
+            if (request.id === requestId) {
+              return {
+                ...request,
+                status: 'completed',
+                reviewed_at: reviewedAt,
+              };
+            }
+
+            if (petId && request.pet.id === petId && request.status === 'pending') {
+              return {
+                ...request,
+                status: 'rejected',
+                reviewed_at: reviewedAt,
+                rejection_reason: 'Pet has been adopted by another applicant',
+              };
+            }
+
+            return request;
+          })
+        );
         setSuccessMessage('Adoption has been completed successfully!');
         setTimeout(() => setSuccessMessage(null), 3000);
       }
@@ -202,12 +260,12 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
         </div>
       )}
 
-      {requests.length === 0 ? (
+      {requestsState.length === 0 ? (
         <div className="text-center py-8 bg-white rounded-lg shadow">
           <p className="text-gray-500">No adoption requests</p>
         </div>
       ) : (
-        requests.map((request) => {
+        requestsState.map((request) => {
           const config = statusConfig[request.status] || statusConfig.pending;
           const StatusIcon = config.icon;
           
@@ -563,14 +621,14 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
                   Approve Application?
                 </h3>
                 <p className="text-sm text-gray-500">
-                  for {requests.find(r => r.id === showApproveConfirm)?.pet.name}
+                  for {requestsState.find(r => r.id === showApproveConfirm)?.pet.name}
                 </p>
               </div>
             </div>
             <p className="text-sm text-gray-600 mb-6">
               Are you sure you want to approve <strong>{
                 (() => {
-                  const req = requests.find(r => r.id === showApproveConfirm);
+                  const req = requestsState.find(r => r.id === showApproveConfirm);
                   return req ? getAdopterName(req.adopter) : '';
                 })()
               }</strong>&apos;s adoption application? The applicant will be notified of the approval.
@@ -608,7 +666,7 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
                   Decline Application?
                 </h3>
                 <p className="text-sm text-gray-500">
-                  for {requests.find(r => r.id === showRejectModal)?.pet.name}
+                  for {requestsState.find(r => r.id === showRejectModal)?.pet.name}
                 </p>
               </div>
             </div>
@@ -650,10 +708,10 @@ export function AdoptionRequestsList({ requests, showPetInfo = true }: AdoptionR
       {showCompleteModal && (
         <CompleteAdoptionModal
           requestId={showCompleteModal}
-          adoptionFee={requests.find(r => r.id === showCompleteModal)?.pet.adoption_fee || 0}
-          petName={requests.find(r => r.id === showCompleteModal)?.pet.name || ''}
+          adoptionFee={requestsState.find(r => r.id === showCompleteModal)?.pet.adoption_fee || 0}
+          petName={requestsState.find(r => r.id === showCompleteModal)?.pet.name || ''}
           adopterName={(() => {
-            const req = requests.find(r => r.id === showCompleteModal);
+            const req = requestsState.find(r => r.id === showCompleteModal);
             return req ? getAdopterName(req.adopter) : '';
           })()}
           onComplete={handleComplete}

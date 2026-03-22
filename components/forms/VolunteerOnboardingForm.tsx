@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 const volunteerOnboardingSchema = z.object({
   application_reason: z.string().min(50, 'Please tell us more about why you want to volunteer (min 50 characters)'),
@@ -135,9 +137,16 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
     try {
       const result = await callApiAction('onboarding', 'submitVolunteerOnboarding', [userId, data]);
       if (result?.error) {
+        notify.error({ title: 'Onboarding failed', description: result.error });
         console.error(result.error);
+      } else {
+        notify.success({ title: 'Application submitted', description: 'Your volunteer application is now under review.' });
+        if (typeof result?.redirectTo === 'string') {
+          window.location.href = result.redirectTo;
+        }
       }
     } catch (error) {
+      notify.error({ title: 'Onboarding failed', description: 'Failed to submit volunteer onboarding form.' });
       console.error('Failed to submit:', error);
     } finally {
       setIsSubmitting(false);
@@ -145,7 +154,9 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <>
+      {isSubmitting && <PageLoaderOverlay label="Submitting application..." />}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {/* Why do you want to volunteer? */}
       <div className="space-y-2">
         <Label htmlFor="application_reason">
@@ -340,6 +351,7 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
       <p className="text-sm text-gray-500 text-center">
         Your application will be reviewed by our team. You&apos;ll receive a notification once approved.
       </p>
-    </form>
+      </form>
+    </>
   );
 }

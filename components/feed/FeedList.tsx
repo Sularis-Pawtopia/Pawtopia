@@ -8,14 +8,16 @@ import { PostWithDetails, CommentWithUser } from '@/types';
 import { callApiAction } from '@/lib/api/action-client';
 import { createClient } from '@/lib/supabase/client';
 import { ImageCarousel } from './ImageCarousel';
-import { PetDetailModal } from '../pets/PetDetailModal';
 import AdoptPetModal from '../profile/AdoptPetModal';
+import { notify } from '@/lib/ui/notify';
 
 interface FeedListProps {
   initialPosts: PostWithDetails[];
   currentUserId?: string;
   userRole?: string;
   hideComments?: boolean;
+  forceShowKebabMenu?: boolean;
+  realtimeRefreshMs?: number;
 }
 
 function formatDate(dateString: string) {
@@ -37,29 +39,43 @@ function formatDate(dateString: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function getPostTypeTag(postType: string) {
+function getPostTypeTag(post: PostWithDetails) {
+  const isDonationDrive = post.post_type === 'event' && String(post.event?.event_type || '').toLowerCase() === 'donation_drive';
   const tags = {
+    adoptable: { label: 'Adoptable', color: 'bg-green-100 text-green-800' },
     adoption: { label: 'Adoption', color: 'bg-green-100 text-green-800' },
     lost_pet: { label: 'Lost Pet', color: 'bg-red-100 text-red-800' },
     found_pet: { label: 'Found Pet', color: 'bg-blue-100 text-blue-800' },
     event: { label: 'Event', color: 'bg-purple-100 text-purple-800' },
+    donation_drive: { label: 'Donation Drive', color: 'bg-amber-100 text-amber-800' },
     story: { label: 'Success Story', color: 'bg-yellow-100 text-yellow-800' },
     feed: { label: 'Post', color: 'bg-gray-100 text-gray-800' },
   };
-  return tags[postType as keyof typeof tags] || tags.feed;
+
+  if (isDonationDrive) {
+    return tags.donation_drive;
+  }
+
+  return tags[post.post_type as keyof typeof tags] || tags.feed;
 }
 
 type ParticipantStatus = 'pending' | 'registered' | 'waitlisted' | 'cancelled' | null;
 type VolunteerStatus = 'pending' | 'approved' | 'rejected' | 'attended' | 'no_show' | null;
 
-export function FeedList({ initialPosts, currentUserId, userRole, hideComments = false }: FeedListProps) {
+export function FeedList({
+  initialPosts,
+  currentUserId,
+  userRole,
+  hideComments = false,
+  forceShowKebabMenu = false,
+  realtimeRefreshMs = 0,
+}: FeedListProps) {
   const [posts, setPosts] = useState(initialPosts);
   const [participantStatusByEvent, setParticipantStatusByEvent] = useState<Record<string, ParticipantStatus>>({});
   const [volunteerStatusByEvent, setVolunteerStatusByEvent] = useState<Record<string, VolunteerStatus>>({});
   const [eventActionPendingId, setEventActionPendingId] = useState<string | null>(null);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [showAllComments, setShowAllComments] = useState<Record<string, boolean>>({});
-  const [selectedPetPost, setSelectedPetPost] = useState<PostWithDetails | null>(null);
   const [showAdoptModal, setShowAdoptModal] = useState<{ pet: any; shelterUser: any } | null>(null);
   const [existingRequests, setExistingRequests] = useState<Record<string, { id: string; status: string; created_at?: string } | null>>({});
   const [adoptTooltip, setAdoptTooltip] = useState<string | null>(null);
@@ -69,6 +85,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
   const [editPending, setEditPending] = useState(false);
   const [editError, setEditError] = useState('');
   const kebabRef = useRef<HTMLDivElement | null>(null);
+  const channelSuffixRef = useRef<string>(Math.random().toString(36).slice(2, 10));
 
   // Update posts when initialPosts changes (e.g., on page refetch)
   useEffect(() => {
@@ -128,9 +145,11 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     const result = await callApiAction<any>('events', 'registerParticipant', [eventId]);
     setEventActionPendingId(null);
     if (!result.success) {
-      alert(result.error || 'Failed to register participant');
+      notify.error({ title: 'Registration failed', description: result.error || 'Failed to register participant' });
       return;
     }
+
+    notify.success({ title: 'Registered', description: 'You are now registered for this event.' });
 
     const status = (result.data?.status as ParticipantStatus) || 'registered';
     setParticipantStatusByEvent((prev) => ({ ...prev, [eventId]: status }));
@@ -158,9 +177,11 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     const result = await callApiAction<any>('events', 'cancelParticipantRegistration', [eventId]);
     setEventActionPendingId(null);
     if (!result.success) {
-      alert(result.error || 'Failed to cancel participant registration');
+      notify.error({ title: 'Cancellation failed', description: result.error || 'Failed to cancel participant registration' });
       return;
     }
+
+    notify.info({ title: 'Registration cancelled', description: 'Your event registration was cancelled.' });
 
     setParticipantStatusByEvent((prev) => ({ ...prev, [eventId]: 'cancelled' }));
 
@@ -193,11 +214,12 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     ]);
     setEventActionPendingId(null);
     if (!result.success) {
-      alert(result.error || 'Failed to apply as volunteer');
+      notify.error({ title: 'Application failed', description: result.error || 'Failed to apply as volunteer' });
       return;
     }
 
     setVolunteerStatusByEvent((prev) => ({ ...prev, [eventId]: 'pending' }));
+    notify.success({ title: 'Application sent', description: 'Your volunteer application is pending review.' });
   }, [currentUserId]);
 
   const cancelVolunteerOnPost = useCallback(async (eventId: string) => {
@@ -205,11 +227,12 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     const result = await callApiAction<any>('volunteer', 'cancelMyEventVolunteerApplication', [eventId]);
     setEventActionPendingId(null);
     if (!result.success) {
-      alert(result.error || 'Failed to cancel volunteer registration');
+      notify.error({ title: 'Cancellation failed', description: result.error || 'Failed to cancel volunteer registration' });
       return;
     }
 
     setVolunteerStatusByEvent((prev) => ({ ...prev, [eventId]: null }));
+    notify.info({ title: 'Application cancelled', description: 'Your volunteer application was cancelled.' });
   }, []);
 
   // Close kebab when clicking outside
@@ -228,10 +251,11 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     if (!window.confirm('Delete this post? This cannot be undone.')) return;
     const result = await callApiAction('posts', 'deletePost', [postId]);
     if (result.error) {
-      alert(result.error);
+      notify.error({ title: 'Delete failed', description: result.error });
       return;
     }
     setPosts((prev) => prev.filter((p) => p.id !== postId));
+    notify.success({ title: 'Post deleted' });
   }, []);
 
   const openEditModal = useCallback((post: PostWithDetails) => {
@@ -249,10 +273,12 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     setEditPending(false);
     if (result.error) {
       setEditError(result.error);
+      notify.error({ title: 'Update failed', description: result.error });
       return;
     }
     setPosts((prev) => prev.map((p) => p.id === editingPost.id ? { ...p, description: editDescription } : p));
     setEditingPost(null);
+    notify.success({ title: 'Post updated' });
   }, [editingPost, editDescription]);
 
   // Store postIds in a ref to avoid subscription churn
@@ -302,7 +328,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     };
 
     const likesChannel = supabase
-      .channel('likes_realtime_v4')
+      .channel(`likes_realtime_${channelSuffixRef.current}`)
       .on(
         'postgres_changes',
         {
@@ -319,7 +345,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
       .subscribe();
 
     const commentsChannel = supabase
-      .channel('comments_realtime_v3')
+      .channel(`comments_realtime_${channelSuffixRef.current}`)
       .on(
         'postgres_changes',
         {
@@ -394,6 +420,48 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
       supabase.removeChannel(commentsChannel);
     };
   }, [currentUserId]);
+
+  useEffect(() => {
+    if (!realtimeRefreshMs || realtimeRefreshMs < 500) return;
+
+    const supabase = createClient();
+
+    const refreshCounts = async () => {
+      const postIds = postIdsRef.current;
+      if (postIds.length === 0) return;
+
+      const [likesRows, commentsRows] = await Promise.all([
+        supabase.from('likes').select('post_id').in('post_id', postIds),
+        supabase.from('comments').select('post_id').in('post_id', postIds),
+      ]);
+
+      const likeCounts: Record<string, number> = {};
+      const commentCounts: Record<string, number> = {};
+
+      for (const row of likesRows.data || []) {
+        if (!row.post_id) continue;
+        likeCounts[row.post_id] = (likeCounts[row.post_id] || 0) + 1;
+      }
+
+      for (const row of commentsRows.data || []) {
+        if (!row.post_id) continue;
+        commentCounts[row.post_id] = (commentCounts[row.post_id] || 0) + 1;
+      }
+
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => ({
+          ...post,
+          like_count: likeCounts[post.id] || 0,
+          comment_count: commentCounts[post.id] || 0,
+        }))
+      );
+    };
+
+    const timer = setInterval(refreshCounts, realtimeRefreshMs);
+    refreshCounts();
+
+    return () => clearInterval(timer);
+  }, [realtimeRefreshMs]);
 
   const handleLike = useCallback(async (postId: string) => {
     // Get current state for this post BEFORE optimistic update
@@ -518,10 +586,6 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     });
   }, [posts, currentUserId, userRole]);
 
-  const handleViewPet = useCallback((post: PostWithDetails) => {
-    setSelectedPetPost(post);
-  }, []);
-
   const handleAdoptClick = useCallback((post: PostWithDetails) => {
     if (!post.pet) return;
     const postUser = Array.isArray(post.user) ? post.user[0] : post.user;
@@ -540,7 +604,6 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
 
   const handleAdoptionSuccess = useCallback((petId: string) => {
     setShowAdoptModal(null);
-    setSelectedPetPost(null);
     setExistingRequests(prev => ({ ...prev, [petId]: { id: 'new', status: 'pending' } }));
   }, []);
 
@@ -553,7 +616,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
         </div>
       ) : (
         posts.map((post) => {
-          const tag = getPostTypeTag(post.post_type);
+          const tag = getPostTypeTag(post);
           const mediaUrls = Array.isArray(post.media_urls) ? post.media_urls : [];
           const visibleComments = getVisibleComments(post);
           const remainingCount = getRemainingCommentsCount(post);
@@ -596,8 +659,8 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                     {tag.label}
                   </span>
 
-                  {/* Kebab — only visible to the post owner */}
-                  {currentUserId && postUser.id === currentUserId && (
+                  {/* Kebab menu */}
+                  {(forceShowKebabMenu || (currentUserId && postUser.id === currentUserId)) && (
                     <div className="relative" ref={openKebab === post.id ? kebabRef : null}>
                       <button
                         onClick={() => setOpenKebab(openKebab === post.id ? null : post.id)}
@@ -611,6 +674,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                         <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-30">
                           <button
                             onClick={() => openEditModal(post)}
+                            disabled={!currentUserId || postUser.id !== currentUserId}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                           >
                             <Pencil className="w-4 h-4" />
@@ -618,6 +682,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                           </button>
                           <button
                             onClick={() => handleDeletePost(post.id)}
+                            disabled={!currentUserId || postUser.id !== currentUserId}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -652,6 +717,13 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                     <ImageCarousel
                       images={mediaUrls as string[]}
                       alt={post.event.event_name || post.title || 'Post image'}
+                    />
+                  </Link>
+                ) : post.pet ? (
+                  <Link href={`/companions/${post.pet.id}/post`} className="block">
+                    <ImageCarousel
+                      images={mediaUrls as string[]}
+                      alt={post.pet.name || post.title || 'Post image'}
                     />
                   </Link>
                 ) : (
@@ -704,9 +776,9 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                 {post.pet && (
                   <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-start justify-between gap-3">
-                      <div
+                      <Link
+                        href={`/companions/${post.pet.id}/post`}
                         className="flex-1 cursor-pointer hover:underline"
-                        onClick={() => handleViewPet(post)}
                       >
                         <p className="font-bold text-green-900 text-lg">{post.pet.name}</p>
                         <div className="flex flex-wrap gap-2 mt-2">
@@ -731,7 +803,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                             </span>
                           )}
                         </div>
-                      </div>
+                      </Link>
 
                       {/* Adopt Button */}
                       {post.pet.status === 'available' && (
@@ -806,77 +878,124 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                 )}
 
                 {/* Event Details */}
-                {post.event && (
-                  <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <p className="font-bold text-purple-900 text-lg">{post.event.event_name}</p>
-                    <p className="text-sm text-purple-800 flex items-center gap-1 mt-1">
-                      <Calendar className="w-4 h-4" />
-                      {new Date(post.event.event_date).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </p>
-                    <p className="text-xs text-purple-700 mt-1">
-                      {typeof post.event.capacity === 'number' && post.event.capacity > 0
-                        ? `${post.event.attendee_count || 0}/${post.event.capacity} registered`
-                        : `${post.event.attendee_count || 0} registered`}
-                    </p>
-                    {post.event.is_volunteer_event && (
-                      <p className="text-xs text-purple-700 mt-1">
-                        {typeof post.event.volunteers_needed === 'number' && post.event.volunteers_needed > 0
-                          ? `${post.event.volunteers_confirmed || 0}/${post.event.volunteers_needed} volunteers approved`
-                          : `${post.event.volunteers_confirmed || 0} volunteers approved`}
+                {post.event && (() => {
+                  const isDonationDrive = String(post.event.event_type || '').toLowerCase() === 'donation_drive';
+                  const donationEvent = post.event as any;
+                  const tagList = Array.isArray(post.tags) ? post.tags : [];
+                  const beneficiaryTag = tagList.find((tag) => tag.startsWith('beneficiary:'));
+
+                  const donationGoal = Number(donationEvent.donation_goal_php || 0);
+                  const raisedAmount = Number(donationEvent.donation_raised_php || 0);
+                  const beneficiary =
+                    donationEvent.donation_beneficiary ||
+                    beneficiaryTag?.split(':').slice(1).join(':') ||
+                    'Community beneficiaries';
+                  const percent = donationGoal > 0 ? Math.min(100, Math.round((raisedAmount / donationGoal) * 100)) : 0;
+
+                  if (isDonationDrive) {
+                    return (
+                      <div className="mb-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                        <p className="font-bold text-amber-900 text-lg">{post.event.event_name}</p>
+                        <p className="text-sm text-amber-800 flex items-center gap-1 mt-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(post.event.event_date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </p>
+                        <p className="text-xs text-amber-800 mt-1">Beneficiary: {beneficiary}</p>
+                        <p className="text-xs text-amber-800 mt-1">Live donations reflected from paid transactions</p>
+                        <div className="mt-2 h-2 w-full bg-amber-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-500 rounded-full" style={{ width: `${percent}%` }} />
+                        </div>
+                        <p className="text-xs text-amber-700 mt-1">
+                          PHP {raisedAmount.toLocaleString()} raised of PHP {donationGoal.toLocaleString()} goal
+                        </p>
+                        <div className="mt-3">
+                          <Link
+                            href={`/events/${post.event.id}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
+                          >
+                            Donate
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="mb-3 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                      <p className="font-bold text-purple-900 text-lg">{post.event.event_name}</p>
+                      <p className="text-sm text-purple-800 flex items-center gap-1 mt-1">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(post.event.event_date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
                       </p>
-                    )}
+                      <p className="text-xs text-purple-700 mt-1">
+                        {typeof post.event.capacity === 'number' && post.event.capacity > 0
+                          ? `${post.event.attendee_count || 0}/${post.event.capacity} registered`
+                          : `${post.event.attendee_count || 0} registered`}
+                      </p>
+                      {post.event.is_volunteer_event && (
+                        <p className="text-xs text-purple-700 mt-1">
+                          {typeof post.event.volunteers_needed === 'number' && post.event.volunteers_needed > 0
+                            ? `${post.event.volunteers_confirmed || 0}/${post.event.volunteers_needed} volunteers approved`
+                            : `${post.event.volunteers_confirmed || 0} volunteers approved`}
+                        </p>
+                      )}
 
-                    {currentUserId &&
-                      currentUserId !== post.event.organizer_id &&
-                      currentUserId !== post.event.shelter_id && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {(participantStatusByEvent[post.event.id] === 'registered' ||
-                            participantStatusByEvent[post.event.id] === 'waitlisted' ||
-                            participantStatusByEvent[post.event.id] === 'pending') ? (
-                            <button
-                              onClick={() => cancelParticipantOnPost(post.event!.id)}
-                              disabled={eventActionPendingId === post.event.id}
-                              className="px-3 py-1.5 rounded-md border border-gray-300 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                            >
-                              Cancel Participant ({participantStatusByEvent[post.event.id]})
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => registerParticipantOnPost(post.event!.id)}
-                              disabled={eventActionPendingId === post.event.id}
-                              className="px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs hover:bg-primary-700 disabled:opacity-50"
-                            >
-                              Register as Participant
-                            </button>
-                          )}
-
-                          {post.event.is_volunteer_event && (
-                            volunteerStatusByEvent[post.event.id] ? (
+                      {currentUserId &&
+                        currentUserId !== post.event.organizer_id &&
+                        currentUserId !== post.event.shelter_id && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(participantStatusByEvent[post.event.id] === 'registered' ||
+                              participantStatusByEvent[post.event.id] === 'waitlisted' ||
+                              participantStatusByEvent[post.event.id] === 'pending') ? (
                               <button
-                                onClick={() => cancelVolunteerOnPost(post.event!.id)}
+                                onClick={() => cancelParticipantOnPost(post.event!.id)}
                                 disabled={eventActionPendingId === post.event.id}
                                 className="px-3 py-1.5 rounded-md border border-gray-300 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
                               >
-                                Cancel Volunteer ({volunteerStatusByEvent[post.event.id]})
+                                Cancel Participant ({participantStatusByEvent[post.event.id]})
                               </button>
                             ) : (
                               <button
-                                onClick={() => applyVolunteerOnPost(post.event!.id)}
+                                onClick={() => registerParticipantOnPost(post.event!.id)}
                                 disabled={eventActionPendingId === post.event.id}
-                                className="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
+                                className="px-3 py-1.5 rounded-md bg-primary-600 text-white text-xs hover:bg-primary-700 disabled:opacity-50"
                               >
-                                Apply as Volunteer
+                                Register as Participant
                               </button>
-                            )
-                          )}
-                        </div>
-                      )}
-                  </div>
-                )}
+                            )}
+
+                            {post.event.is_volunteer_event && (
+                              volunteerStatusByEvent[post.event.id] ? (
+                                <button
+                                  onClick={() => cancelVolunteerOnPost(post.event!.id)}
+                                  disabled={eventActionPendingId === post.event.id}
+                                  className="px-3 py-1.5 rounded-md border border-gray-300 text-xs text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                                >
+                                  Cancel Volunteer ({volunteerStatusByEvent[post.event.id]})
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => applyVolunteerOnPost(post.event!.id)}
+                                  disabled={eventActionPendingId === post.event.id}
+                                  className="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-xs hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                  Apply as Volunteer
+                                </button>
+                              )
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  );
+                })()}
 
                 {/* Post Description */}
                 <div className="mb-2">
@@ -1055,48 +1174,6 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
             </div>
           </div>
         </div>
-      )}
-
-      {/* Pet Detail Modal */}
-      {selectedPetPost && selectedPetPost.pet && (
-        <PetDetailModal
-          pet={{
-            ...selectedPetPost.pet,
-            post: {
-              description: selectedPetPost.description,
-              media_urls: selectedPetPost.media_urls as string[],
-              tags: selectedPetPost.tags || [],
-            },
-            shelter: (() => {
-              const u = Array.isArray(selectedPetPost.user) ? selectedPetPost.user[0] : selectedPetPost.user;
-              return {
-                id: u?.id || '',
-                username: u?.username || '',
-                avatar_url: u?.avatar_url || undefined,
-                city: u?.city || undefined,
-                state: u?.state || undefined,
-              };
-            })(),
-          }}
-          userRole={userRole}
-          existingRequest={existingRequests[selectedPetPost.pet.id] || null}
-          onClose={() => setSelectedPetPost(null)}
-          onAdopt={() => {
-            const postUser = Array.isArray(selectedPetPost.user) ? selectedPetPost.user[0] : selectedPetPost.user;
-            setSelectedPetPost(null);
-            setShowAdoptModal({
-              pet: {
-                ...selectedPetPost.pet!,
-                post: {
-                  description: selectedPetPost.description,
-                  media_urls: selectedPetPost.media_urls as string[],
-                  tags: selectedPetPost.tags || [],
-                },
-              },
-              shelterUser: postUser,
-            });
-          }}
-        />
       )}
 
       {/* Adopt Pet Modal — same flow as shelter profile */}

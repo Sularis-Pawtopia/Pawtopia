@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
 
 type ParticipantStatus = 'pending' | 'registered' | 'waitlisted' | 'cancelled' | null;
 type VolunteerStatus = 'pending' | 'approved' | 'rejected' | 'attended' | 'no_show' | null;
@@ -153,7 +154,9 @@ export function EventRegistrationPanel({ event, currentUser }: EventRegistration
     startTransition(async () => {
       const result = await callApiAction<any>('events', 'registerParticipant', [event.id]);
       if (!result.success) {
-        setError(result.error || 'Failed to register for event');
+        const message = result.error || 'Failed to register for event';
+        setError(message);
+        notify.error({ title: 'Registration failed', description: message });
         return;
       }
 
@@ -161,6 +164,7 @@ export function EventRegistrationPanel({ event, currentUser }: EventRegistration
       setParticipantStatus((data?.status as ParticipantStatus) || 'registered');
       setAttendeeCount(typeof data?.attendee_count === 'number' ? data.attendee_count : attendeeCount);
       setWaitlistCount(typeof data?.waitlist_count === 'number' ? data.waitlist_count : waitlistCount);
+      notify.success({ title: 'Registration submitted', description: 'Your participant registration was recorded.' });
       if (isOrganizer) {
         await refreshOrganizerLists();
       }
@@ -172,7 +176,9 @@ export function EventRegistrationPanel({ event, currentUser }: EventRegistration
     startTransition(async () => {
       const result = await callApiAction<any>('events', 'cancelParticipantRegistration', [event.id]);
       if (!result.success) {
-        setError(result.error || 'Failed to cancel registration');
+        const message = result.error || 'Failed to cancel registration';
+        setError(message);
+        notify.error({ title: 'Cancellation failed', description: message });
         return;
       }
 
@@ -180,6 +186,7 @@ export function EventRegistrationPanel({ event, currentUser }: EventRegistration
       setParticipantStatus('cancelled');
       setAttendeeCount(typeof data?.attendee_count === 'number' ? data.attendee_count : attendeeCount);
       setWaitlistCount(typeof data?.waitlist_count === 'number' ? data.waitlist_count : waitlistCount);
+      notify.info({ title: 'Registration cancelled' });
       if (isOrganizer) {
         await refreshOrganizerLists();
       }
@@ -198,11 +205,14 @@ export function EventRegistrationPanel({ event, currentUser }: EventRegistration
       ]);
 
       if (!result.success) {
-        setError(result.error || 'Failed to apply as volunteer');
+        const message = result.error || 'Failed to apply as volunteer';
+        setError(message);
+        notify.error({ title: 'Application failed', description: message });
         return;
       }
 
       setVolunteerStatus('pending');
+      notify.success({ title: 'Volunteer application submitted' });
       if (isOrganizer) {
         await refreshOrganizerLists();
       }
@@ -214,11 +224,14 @@ export function EventRegistrationPanel({ event, currentUser }: EventRegistration
     startTransition(async () => {
       const result = await callApiAction<any>('volunteer', 'cancelMyEventVolunteerApplication', [event.id]);
       if (!result.success) {
-        setError(result.error || 'Failed to cancel volunteer registration');
+        const message = result.error || 'Failed to cancel volunteer registration';
+        setError(message);
+        notify.error({ title: 'Cancellation failed', description: message });
         return;
       }
 
       setVolunteerStatus(null);
+      notify.info({ title: 'Volunteer application cancelled' });
       if (isOrganizer) {
         await refreshOrganizerLists();
       }
@@ -234,10 +247,13 @@ export function EventRegistrationPanel({ event, currentUser }: EventRegistration
       ]);
 
       if (!result.success) {
-        setError(result.error || `Failed to ${status} volunteer`);
+        const message = result.error || `Failed to ${status} volunteer`;
+        setError(message);
+        notify.error({ title: 'Review failed', description: message });
         return;
       }
 
+      notify.success({ title: `Volunteer ${status}` });
       await refreshOrganizerLists();
     });
   };
@@ -251,10 +267,13 @@ export function EventRegistrationPanel({ event, currentUser }: EventRegistration
       ]);
 
       if (!result.success) {
-        setError(result.error || `Failed to ${decision} participant`);
+        const message = result.error || `Failed to ${decision} participant`;
+        setError(message);
+        notify.error({ title: 'Review failed', description: message });
         return;
       }
 
+      notify.success({ title: `Participant ${decision}` });
       await refreshOrganizerLists();
     });
   };

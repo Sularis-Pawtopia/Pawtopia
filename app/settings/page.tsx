@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/actions/auth.actions';
+import { getDvmfBranchProfile } from '@/lib/actions/healthcare.actions';
+import { HealthcareBranchSettings } from '@/components/dvmf/HealthcareBranchSettings';
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -8,10 +10,23 @@ export default async function SettingsPage() {
     redirect('/auth/login');
   }
 
+  const dvmfBranchProfileResult = user.role === 'dvmf' ? await getDvmfBranchProfile() : { success: false, data: null };
+  const dvmfBranchProfile = (dvmfBranchProfileResult.success ? dvmfBranchProfileResult.data : null) || null;
+
   return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Settings</h1>
+
+          {user.role === 'dvmf' && (
+            <div className="mb-6">
+              <div className="bg-white rounded-lg shadow p-6 mb-4">
+                <h2 className="text-xl font-semibold text-gray-900 mb-1">Branch Profile and Availability</h2>
+                <p className="text-sm text-gray-600">Manage branch details, open days/hours, and appointment slot generation settings here.</p>
+              </div>
+              <HealthcareBranchSettings initialProfile={dvmfBranchProfile} />
+            </div>
+          )}
 
           <div className="space-y-6">
             {/* Account Settings */}

@@ -33,11 +33,11 @@ export default async function AddPetPage() {
           {/* Header */}
           <div className="mb-8">
             <Link 
-              href="/shelter"
+              href="/shelter/operations"
               className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to Dashboard
+              Back to Shelter Operations
             </Link>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
               Add New Pet
@@ -48,7 +48,7 @@ export default async function AddPetPage() {
           </div>
 
           {/* Form */}
-          <AddPetForm shelterId={user.id} />
+          <AddPetForm shelterId={user.id} redirectPath="/shelter/operations" />
         </div>
       </div>
     </div>

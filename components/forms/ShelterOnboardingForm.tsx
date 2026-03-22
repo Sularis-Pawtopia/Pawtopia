@@ -3,6 +3,9 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { callApiAction } from '@/lib/api/action-client';
+import { notify } from '@/lib/ui/notify';
+import { CatLoader } from '@/components/ui/CatLoader';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 type PolicyOption = 'yes' | 'no' | 'sometimes';
 
@@ -218,7 +221,9 @@ export function ShelterOnboardingForm() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        setError('Not authenticated');
+        const message = 'Not authenticated';
+        setError(message);
+        notify.error({ title: 'Submission failed', description: message });
         setIsLoading(false);
         return;
       }
@@ -267,9 +272,11 @@ export function ShelterOnboardingForm() {
 
       if (result?.error) {
         setError(result.error);
+        notify.error({ title: 'Onboarding failed', description: result.error });
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         setSubmitSuccess(true);
+        notify.success({ title: 'Application submitted', description: 'Your shelter verification is now under review.' });
         // Small delay so user sees the success message before redirect
         setTimeout(() => {
           window.location.href = '/dashboard';
@@ -277,7 +284,9 @@ export function ShelterOnboardingForm() {
       }
     } catch (err: any) {
       console.error('Shelter onboarding error:', err);
-      setError(err?.message || 'An unexpected error occurred');
+      const message = err?.message || 'An unexpected error occurred';
+      setError(message);
+      notify.error({ title: 'Onboarding failed', description: message });
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsLoading(false);
@@ -291,6 +300,8 @@ export function ShelterOnboardingForm() {
 
   return (
     <div>
+      {isLoading && !submitSuccess && <PageLoaderOverlay label="Submitting verification..." />}
+
       {/* Success Overlay */}
       {submitSuccess && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -305,23 +316,17 @@ export function ShelterOnboardingForm() {
               Your shelter verification is under review. You&apos;ll be redirected to your dashboard shortly.
             </p>
             <div className="flex items-center justify-center gap-2 text-primary-600">
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
+              <CatLoader size={56} className="-my-4" />
               <span className="text-sm font-medium">Redirecting...</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Logo Placeholder */}
+      {/* Pawtopia Logo */}
       <div className="flex justify-center mb-8">
-        <div className="w-24 h-24 bg-primary-50 border-2 border-dashed border-primary-300 rounded-xl flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-8 h-8 bg-primary-200 rounded-lg mx-auto mb-2"></div>
-            <span className="text-xs text-primary-600 font-medium">Logo</span>
-          </div>
+        <div className="w-24 h-24 bg-primary-50 border border-primary-200 rounded-xl flex items-center justify-center p-2">
+          <img src="/pawtopia-logo.png" alt="Pawtopia logo" className="w-full h-full object-contain" />
         </div>
       </div>
 

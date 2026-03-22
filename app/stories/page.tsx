@@ -29,7 +29,7 @@ export default async function StoriesPage() {
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-12 text-center">
           <div className="text-6xl mb-4">❤️</div>
           <blockquote className="text-2xl font-serif italic text-gray-700 mb-4">
-            &quot;Saving one dog will not change the world, but surely for that one dog, the world will change forever.&quot;
+            "Saving one dog will not change the world, but surely for that one dog, the world will change forever."
           </blockquote>
           <p className="text-gray-500">- Karen Davison</p>
         </div>

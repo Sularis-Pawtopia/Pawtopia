@@ -9,7 +9,7 @@ interface ProfileHeaderProps {
 
 export function ProfileHeader({ profile }: ProfileHeaderProps) {
   const [showPhotoEditor, setShowPhotoEditor] = useState(false);
-  const isShelter = profile.role === 'shelter';
+  const isShelter = profile.role === 'shelter' || profile.role === 'dvmf';
   const isAdopter = profile.role === 'adopter';
   const isOwner = profile.isOwner;
   const p = profile.profile; // role-specific profile data
@@ -103,7 +103,9 @@ export function ProfileHeader({ profile }: ProfileHeaderProps) {
                       ? 'bg-green-100 text-green-800 border border-green-200'
                       : 'bg-amber-100 text-amber-800 border border-amber-200'
                   }`}>
-                    {profile.is_verified ? '✅ Verified Shelter' : '⏳ Pending Verification'}
+                    {profile.is_verified
+                      ? `✅ Verified ${profile.role === 'dvmf' ? 'DVMF' : 'Shelter'}`
+                      : '⏳ Pending Verification'}
                   </span>
                 )}
                 {isAdopter && (

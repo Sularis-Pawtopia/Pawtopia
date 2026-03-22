@@ -6,13 +6,13 @@ import { usePathname } from 'next/navigation';
 import { useSidebar } from './SidebarContext';
 import {
   Home,
-  Compass,
   Heart,
   Calendar,
   MapPin,
   BookOpen,
-  ShoppingBag,
-  LayoutDashboard,
+  Stethoscope,
+  BarChart3,
+  ClipboardList,
   Settings,
   Newspaper,
 } from 'lucide-react';
@@ -22,12 +22,10 @@ interface SidebarProps {
 }
 
 const baseNavigation = [
-  { name: 'Explore', href: '/explore', icon: Compass },
-  { name: 'Adoptable Pets', href: '/pets', icon: Heart },
+  { name: 'Companions', href: '/pets', icon: Heart },
   { name: 'Events', href: '/events', icon: Calendar },
   { name: 'Lost & Found', href: '/lost-pets', icon: MapPin },
   { name: 'Stories', href: '/stories', icon: BookOpen },
-  { name: 'Store', href: '/store', icon: ShoppingBag },
 ];
 
 export function Sidebar({ user }: SidebarProps) {
@@ -43,26 +41,51 @@ export function Sidebar({ user }: SidebarProps) {
   const navigation = useMemo(() => {
     if (user?.role === 'shelter') {
       return [
-        { name: 'Shelter Dashboard', href: '/shelter', icon: LayoutDashboard },
+        { name: 'Shelter Insights', href: '/shelter', icon: BarChart3 },
+        { name: 'Shelter Operations', href: '/shelter/operations', icon: ClipboardList },
         { name: 'Feed', href: '/dashboard', icon: Newspaper },
         ...baseNavigation,
       ];
     }
     if (user?.role === 'dvmf') {
       return [
-        { name: 'DVMF Dashboard', href: '/dvmf', icon: LayoutDashboard },
+        { name: 'DVMF Insights', href: '/dvmf', icon: BarChart3 },
+        { name: 'DVMF Operations', href: '/dvmf/operations', icon: ClipboardList },
         { name: 'Feed', href: '/dashboard', icon: Newspaper },
         ...baseNavigation,
       ];
     }
+    if (user?.role === 'ngo') {
+      return [
+        { name: 'NGO Insights', href: '/dashboard', icon: BarChart3 },
+        { name: 'NGO Operations', href: '/dashboard/ngo-operations', icon: ClipboardList },
+        ...baseNavigation,
+      ];
+    }
+    const healthcareNav = ['adopter', 'volunteer', 'regular_user'].includes(user?.role)
+      ? [{ name: 'Healthcare', href: '/healthcare', icon: Stethoscope }]
+      : [];
+
     return [
       { name: 'Feed', href: '/dashboard', icon: Home },
+      ...healthcareNav,
       ...baseNavigation,
     ];
   }, [user?.role]);
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + '/');
+  const activeHref = useMemo(() => {
+    let bestMatch = '';
+    for (const item of navigation) {
+      const matches = pathname === item.href || pathname.startsWith(item.href + '/');
+      if (!matches) continue;
+      if (item.href.length > bestMatch.length) {
+        bestMatch = item.href;
+      }
+    }
+    return bestMatch;
+  }, [pathname, navigation]);
+
+  const isActive = (href: string) => href === activeHref;
 
   return (
     <>

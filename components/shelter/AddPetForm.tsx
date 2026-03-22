@@ -6,8 +6,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { petSchema, type PetFormData } from '@/lib/validations';
 import { callApiAction } from '@/lib/api/action-client';
-import { Upload, X, Loader2, PawPrint } from 'lucide-react';
+import { Upload, X, PawPrint } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 const SPECIES_OPTIONS = [
   { value: 'dog', label: 'Dog' },
@@ -55,9 +57,10 @@ const TEMPERAMENT_OPTIONS = [
 
 interface AddPetFormProps {
   shelterId: string;
+  redirectPath?: string;
 }
 
-export function AddPetForm({ shelterId }: AddPetFormProps) {
+export function AddPetForm({ shelterId, redirectPath = '/shelter/operations' }: AddPetFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +92,9 @@ export function AddPetForm({ shelterId }: AddPetFormProps) {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length + images.length > 5) {
-      setError('Maximum 5 images allowed');
+      const message = 'Maximum 5 images allowed';
+      setError(message);
+      notify.error({ title: 'Too many images', description: message });
       return;
     }
 
@@ -167,19 +172,25 @@ export function AddPetForm({ shelterId }: AddPetFormProps) {
 
         if (result.error) {
           setError(result.error);
+          notify.error({ title: 'Create pet failed', description: result.error });
           return;
         }
 
-        router.push('/shelter');
+        notify.success({ title: 'Pet listing created' });
+        router.push(redirectPath);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong');
+        const message = err instanceof Error ? err.message : 'Something went wrong';
+        setError(message);
+        notify.error({ title: 'Create pet failed', description: message });
       }
     });
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <>
+      {(isPending || uploadingImages) && <PageLoaderOverlay label={uploadingImages ? 'Uploading pet photos...' : 'Creating pet listing...'} />}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error}
@@ -567,12 +578,10 @@ export function AddPetForm({ shelterId }: AddPetFormProps) {
           disabled={isPending || uploadingImages}
           className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          {(isPending || uploadingImages) && (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          )}
           {uploadingImages ? 'Uploading Images...' : isPending ? 'Creating Pet...' : 'Add Pet'}
         </button>
       </div>
-    </form>
+      </form>
+    </>
   );
 }

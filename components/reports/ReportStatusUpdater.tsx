@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { callApiAction } from '@/lib/api/action-client';
 import type { ReportStatus } from '@/types/expanded.types';
+import { notify } from '@/lib/ui/notify';
 
 interface ReportStatusUpdaterProps {
   reportId: string;
@@ -46,12 +47,13 @@ export function ReportStatusUpdater({
       const result = await callApiAction('reports', 'updateReportStatus', [reportId, selectedStatus, notes || undefined]);
       
       if (result.success) {
+        notify.success({ title: 'Status updated', description: 'The report status has been updated.' });
         setIsOpen(false);
         setSelectedStatus(null);
         setNotes('');
         router.refresh();
       } else {
-        alert('Failed to update status: ' + result.error);
+        notify.error({ title: 'Update failed', description: 'Failed to update status: ' + result.error });
       }
     });
   };

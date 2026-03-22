@@ -6,8 +6,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { petSchema, type PetFormData } from '@/lib/validations';
 import { callApiAction } from '@/lib/api/action-client';
-import { Upload, X, Loader2, PawPrint, Trash2 } from 'lucide-react';
+import { Upload, X, PawPrint, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { notify } from '@/lib/ui/notify';
+import { PageLoaderOverlay } from '@/components/ui/PageLoaderOverlay';
 
 const SPECIES_OPTIONS = [
   { value: 'dog', label: 'Dog' },
@@ -109,7 +111,9 @@ export function EditPetForm({ pet, shelterId }: EditPetFormProps) {
     const totalImages = existingImages.length + newImages.length + files.length;
     
     if (totalImages > 5) {
-      setError('Maximum 5 images allowed');
+      const message = 'Maximum 5 images allowed';
+      setError(message);
+      notify.error({ title: 'Too many images', description: message });
       return;
     }
 
@@ -191,13 +195,17 @@ export function EditPetForm({ pet, shelterId }: EditPetFormProps) {
 
         if (result.error) {
           setError(result.error);
+          notify.error({ title: 'Update pet failed', description: result.error });
           return;
         }
 
+        notify.success({ title: 'Pet listing updated' });
         router.push('/shelter');
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Something went wrong');
+        const message = err instanceof Error ? err.message : 'Something went wrong';
+        setError(message);
+        notify.error({ title: 'Update pet failed', description: message });
       }
     });
   };
@@ -208,19 +216,35 @@ export function EditPetForm({ pet, shelterId }: EditPetFormProps) {
       const result = await callApiAction('pets', 'deletePet', [pet.id]);
       if (result.error) {
         setError(result.error);
+        notify.error({ title: 'Delete pet failed', description: result.error });
         setIsDeleting(false);
         return;
       }
+      notify.success({ title: 'Pet listing deleted' });
       router.push('/shelter');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete pet');
+      const message = err instanceof Error ? err.message : 'Failed to delete pet';
+      setError(message);
+      notify.error({ title: 'Delete pet failed', description: message });
       setIsDeleting(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+    <>
+      {(isPending || uploadingImages || isDeleting) && (
+        <PageLoaderOverlay
+          label={
+            isDeleting
+              ? 'Deleting pet listing...'
+              : uploadingImages
+              ? 'Uploading pet photos...'
+              : 'Saving pet changes...'
+          }
+        />
+      )}
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
           {error}
@@ -630,7 +654,6 @@ export function EditPetForm({ pet, shelterId }: EditPetFormProps) {
                 disabled={isDeleting}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2"
               >
-                {isDeleting && <Loader2 className="w-4 h-4 animate-spin" />}
                 Yes, Delete Pet
               </button>
               <button
@@ -659,12 +682,10 @@ export function EditPetForm({ pet, shelterId }: EditPetFormProps) {
           disabled={isPending || uploadingImages}
           className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          {(isPending || uploadingImages) && (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          )}
           {uploadingImages ? 'Uploading Images...' : isPending ? 'Saving...' : 'Save Changes'}
         </button>
       </div>
-    </form>
+      </form>
+    </>
   );
 }

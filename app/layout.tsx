@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   title: 'Pawtopia - Find Your Perfect Pet Companion',
   description: 'Connect with shelters and find your perfect pet companion. Adopt, don\'t shop!',
   keywords: ['pet adoption', 'animal shelter', 'adopt pets', 'rescue animals'],
+  icons: {
+    icon: '/favicon.ico?v=2',
+    shortcut: '/favicon.ico?v=2',
+  },
 };
 
 export default function RootLayout({

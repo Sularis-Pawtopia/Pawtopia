@@ -1,0 +1,36 @@
+import {
+  completeWithdrawalRequest,
+  createDonationCheckout,
+  createInKindDonationIntent,
+  createWithdrawalRequest,
+  getInKindDonationIntents,
+  getDonationCampaignDonors,
+  getMyDonationTransactions,
+  getOrganizerBillingAccounts,
+  getOrganizerDonationDashboard,
+  getOrganizerWithdrawalRequests,
+  getPendingWithdrawalRequests,
+  reviewWithdrawalRequest,
+  syncDonationPaymentStatus,
+  syncDonationPaymentStatusByRequestRef,
+  upsertOrganizerBillingAccount,
+} from '@/lib/actions/donation.actions';
+import { createActionRoute } from '@/lib/server/api/action-route';
+
+export const POST = createActionRoute({
+  createDonationCheckout,
+  syncDonationPaymentStatus,
+  syncDonationPaymentStatusByRequestRef,
+  getMyDonationTransactions,
+  getOrganizerDonationDashboard,
+  upsertOrganizerBillingAccount,
+  getOrganizerBillingAccounts,
+  createWithdrawalRequest,
+  getOrganizerWithdrawalRequests,
+  getPendingWithdrawalRequests,
+  reviewWithdrawalRequest,
+  completeWithdrawalRequest,
+  createInKindDonationIntent,
+  getInKindDonationIntents,
+  getDonationCampaignDonors,
+});

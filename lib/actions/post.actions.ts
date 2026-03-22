@@ -4,6 +4,46 @@ import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import type { PostType } from '@/types';
 
+async function attachLiveDonationStats(supabase: any, posts: any[]) {
+  const postList = Array.isArray(posts) ? posts : [];
+  const donationEventIds = postList
+    .map((post) => post?.event)
+    .filter((event) => event && String(event.event_type || '').toLowerCase() === 'donation_drive')
+    .map((event) => String(event.id));
+
+  if (donationEventIds.length === 0) {
+    return postList;
+  }
+
+  const { data: paidTransactions } = await supabase
+    .from('donation_transactions')
+    .select('campaign_id, amount_net, amount_gross, status')
+    .in('campaign_id', donationEventIds)
+    .eq('status', 'paid');
+
+  const raisedByCampaign = new Map<string, number>();
+  for (const tx of paidTransactions || []) {
+    const key = String(tx.campaign_id || '');
+    const current = raisedByCampaign.get(key) || 0;
+    raisedByCampaign.set(key, current + Number(tx.amount_net ?? tx.amount_gross ?? 0));
+  }
+
+  return postList.map((post) => {
+    if (!post?.event || String(post.event.event_type || '').toLowerCase() !== 'donation_drive') {
+      return post;
+    }
+
+    const raised = raisedByCampaign.get(String(post.event.id)) || 0;
+    return {
+      ...post,
+      event: {
+        ...post.event,
+        donation_raised_php: raised,
+      },
+    };
+  });
+}
+
 export async function likePost(postId: string) {
   const supabase = await createClient();
   
@@ -197,8 +237,10 @@ export async function getFeedPosts(filters?: {
     comment_count: commentCounts.get(post.id) || 0,
   }));
 
+  const postsWithDonationStats = await attachLiveDonationStats(supabase, postsWithAccurateCounts);
+
   // Check if user liked and saved each post
-  if (user && postsWithAccurateCounts) {
+  if (user && postsWithDonationStats) {
     const [likesResult, savesResult] = await Promise.all([
       supabase
         .from('likes')
@@ -215,7 +257,7 @@ export async function getFeedPosts(filters?: {
     const likedPostIds = new Set(likesResult.data?.map((l: any) => l.post_id));
     const savedPostIds = new Set(savesResult.data?.map((s: any) => s.post_id));
 
-    const postsWithLikesAndSaves = postsWithAccurateCounts.map((post: any) => ({
+    const postsWithLikesAndSaves = postsWithDonationStats.map((post: any) => ({
       ...post,
       is_liked_by_user: likedPostIds.has(post.id),
       is_saved_by_user: savedPostIds.has(post.id),
@@ -224,7 +266,7 @@ export async function getFeedPosts(filters?: {
     return { data: postsWithLikesAndSaves, count };
   }
 
-  return { data: postsWithAccurateCounts, count };
+  return { data: postsWithDonationStats, count };
 }
 
 export async function getPostWithComments(postId: string) {
@@ -289,9 +331,11 @@ export async function getPostWithComments(postId: string) {
     isSavedByUser = !!saveResult.data;
   }
 
+  const [postWithDonationStats] = await attachLiveDonationStats(supabase, [post]);
+
   return {
     data: {
-      ...post,
+      ...postWithDonationStats,
       like_count: likesCountResult.count || 0,
       comment_count: commentsCountResult.count || 0,
       is_liked_by_user: isLikedByUser,
