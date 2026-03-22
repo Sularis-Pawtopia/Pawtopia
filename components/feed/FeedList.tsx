@@ -8,7 +8,6 @@ import { PostWithDetails, CommentWithUser } from '@/types';
 import { callApiAction } from '@/lib/api/action-client';
 import { createClient } from '@/lib/supabase/client';
 import { ImageCarousel } from './ImageCarousel';
-import { PetDetailModal } from '../pets/PetDetailModal';
 import AdoptPetModal from '../profile/AdoptPetModal';
 import { notify } from '@/lib/ui/notify';
 
@@ -17,6 +16,8 @@ interface FeedListProps {
   currentUserId?: string;
   userRole?: string;
   hideComments?: boolean;
+  forceShowKebabMenu?: boolean;
+  realtimeRefreshMs?: number;
 }
 
 function formatDate(dateString: string) {
@@ -40,8 +41,8 @@ function formatDate(dateString: string) {
 
 function getPostTypeTag(post: PostWithDetails) {
   const isDonationDrive = post.post_type === 'event' && String(post.event?.event_type || '').toLowerCase() === 'donation_drive';
-
   const tags = {
+    adoptable: { label: 'Adoptable', color: 'bg-green-100 text-green-800' },
     adoption: { label: 'Adoption', color: 'bg-green-100 text-green-800' },
     lost_pet: { label: 'Lost Pet', color: 'bg-red-100 text-red-800' },
     found_pet: { label: 'Found Pet', color: 'bg-blue-100 text-blue-800' },
@@ -61,14 +62,20 @@ function getPostTypeTag(post: PostWithDetails) {
 type ParticipantStatus = 'pending' | 'registered' | 'waitlisted' | 'cancelled' | null;
 type VolunteerStatus = 'pending' | 'approved' | 'rejected' | 'attended' | 'no_show' | null;
 
-export function FeedList({ initialPosts, currentUserId, userRole, hideComments = false }: FeedListProps) {
+export function FeedList({
+  initialPosts,
+  currentUserId,
+  userRole,
+  hideComments = false,
+  forceShowKebabMenu = false,
+  realtimeRefreshMs = 0,
+}: FeedListProps) {
   const [posts, setPosts] = useState(initialPosts);
   const [participantStatusByEvent, setParticipantStatusByEvent] = useState<Record<string, ParticipantStatus>>({});
   const [volunteerStatusByEvent, setVolunteerStatusByEvent] = useState<Record<string, VolunteerStatus>>({});
   const [eventActionPendingId, setEventActionPendingId] = useState<string | null>(null);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [showAllComments, setShowAllComments] = useState<Record<string, boolean>>({});
-  const [selectedPetPost, setSelectedPetPost] = useState<PostWithDetails | null>(null);
   const [showAdoptModal, setShowAdoptModal] = useState<{ pet: any; shelterUser: any } | null>(null);
   const [existingRequests, setExistingRequests] = useState<Record<string, { id: string; status: string; created_at?: string } | null>>({});
   const [adoptTooltip, setAdoptTooltip] = useState<string | null>(null);
@@ -78,6 +85,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
   const [editPending, setEditPending] = useState(false);
   const [editError, setEditError] = useState('');
   const kebabRef = useRef<HTMLDivElement | null>(null);
+  const channelSuffixRef = useRef<string>(Math.random().toString(36).slice(2, 10));
 
   // Update posts when initialPosts changes (e.g., on page refetch)
   useEffect(() => {
@@ -320,7 +328,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     };
 
     const likesChannel = supabase
-      .channel('likes_realtime_v4')
+      .channel(`likes_realtime_${channelSuffixRef.current}`)
       .on(
         'postgres_changes',
         {
@@ -337,7 +345,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
       .subscribe();
 
     const commentsChannel = supabase
-      .channel('comments_realtime_v3')
+      .channel(`comments_realtime_${channelSuffixRef.current}`)
       .on(
         'postgres_changes',
         {
@@ -412,6 +420,48 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
       supabase.removeChannel(commentsChannel);
     };
   }, [currentUserId]);
+
+  useEffect(() => {
+    if (!realtimeRefreshMs || realtimeRefreshMs < 500) return;
+
+    const supabase = createClient();
+
+    const refreshCounts = async () => {
+      const postIds = postIdsRef.current;
+      if (postIds.length === 0) return;
+
+      const [likesRows, commentsRows] = await Promise.all([
+        supabase.from('likes').select('post_id').in('post_id', postIds),
+        supabase.from('comments').select('post_id').in('post_id', postIds),
+      ]);
+
+      const likeCounts: Record<string, number> = {};
+      const commentCounts: Record<string, number> = {};
+
+      for (const row of likesRows.data || []) {
+        if (!row.post_id) continue;
+        likeCounts[row.post_id] = (likeCounts[row.post_id] || 0) + 1;
+      }
+
+      for (const row of commentsRows.data || []) {
+        if (!row.post_id) continue;
+        commentCounts[row.post_id] = (commentCounts[row.post_id] || 0) + 1;
+      }
+
+      setPosts((prevPosts) =>
+        prevPosts.map((post) => ({
+          ...post,
+          like_count: likeCounts[post.id] || 0,
+          comment_count: commentCounts[post.id] || 0,
+        }))
+      );
+    };
+
+    const timer = setInterval(refreshCounts, realtimeRefreshMs);
+    refreshCounts();
+
+    return () => clearInterval(timer);
+  }, [realtimeRefreshMs]);
 
   const handleLike = useCallback(async (postId: string) => {
     // Get current state for this post BEFORE optimistic update
@@ -536,10 +586,6 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
     });
   }, [posts, currentUserId, userRole]);
 
-  const handleViewPet = useCallback((post: PostWithDetails) => {
-    setSelectedPetPost(post);
-  }, []);
-
   const handleAdoptClick = useCallback((post: PostWithDetails) => {
     if (!post.pet) return;
     const postUser = Array.isArray(post.user) ? post.user[0] : post.user;
@@ -558,7 +604,6 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
 
   const handleAdoptionSuccess = useCallback((petId: string) => {
     setShowAdoptModal(null);
-    setSelectedPetPost(null);
     setExistingRequests(prev => ({ ...prev, [petId]: { id: 'new', status: 'pending' } }));
   }, []);
 
@@ -614,8 +659,8 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                     {tag.label}
                   </span>
 
-                  {/* Kebab — only visible to the post owner */}
-                  {currentUserId && postUser.id === currentUserId && (
+                  {/* Kebab menu */}
+                  {(forceShowKebabMenu || (currentUserId && postUser.id === currentUserId)) && (
                     <div className="relative" ref={openKebab === post.id ? kebabRef : null}>
                       <button
                         onClick={() => setOpenKebab(openKebab === post.id ? null : post.id)}
@@ -629,6 +674,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                         <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-30">
                           <button
                             onClick={() => openEditModal(post)}
+                            disabled={!currentUserId || postUser.id !== currentUserId}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                           >
                             <Pencil className="w-4 h-4" />
@@ -636,6 +682,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                           </button>
                           <button
                             onClick={() => handleDeletePost(post.id)}
+                            disabled={!currentUserId || postUser.id !== currentUserId}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -670,6 +717,13 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                     <ImageCarousel
                       images={mediaUrls as string[]}
                       alt={post.event.event_name || post.title || 'Post image'}
+                    />
+                  </Link>
+                ) : post.pet ? (
+                  <Link href={`/companions/${post.pet.id}/post`} className="block">
+                    <ImageCarousel
+                      images={mediaUrls as string[]}
+                      alt={post.pet.name || post.title || 'Post image'}
                     />
                   </Link>
                 ) : (
@@ -722,9 +776,9 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                 {post.pet && (
                   <div className="mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
                     <div className="flex items-start justify-between gap-3">
-                      <div
+                      <Link
+                        href={`/companions/${post.pet.id}/post`}
                         className="flex-1 cursor-pointer hover:underline"
-                        onClick={() => handleViewPet(post)}
                       >
                         <p className="font-bold text-green-900 text-lg">{post.pet.name}</p>
                         <div className="flex flex-wrap gap-2 mt-2">
@@ -749,7 +803,7 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
                             </span>
                           )}
                         </div>
-                      </div>
+                      </Link>
 
                       {/* Adopt Button */}
                       {post.pet.status === 'available' && (
@@ -1120,48 +1174,6 @@ export function FeedList({ initialPosts, currentUserId, userRole, hideComments =
             </div>
           </div>
         </div>
-      )}
-
-      {/* Pet Detail Modal */}
-      {selectedPetPost && selectedPetPost.pet && (
-        <PetDetailModal
-          pet={{
-            ...selectedPetPost.pet,
-            post: {
-              description: selectedPetPost.description,
-              media_urls: selectedPetPost.media_urls as string[],
-              tags: selectedPetPost.tags || [],
-            },
-            shelter: (() => {
-              const u = Array.isArray(selectedPetPost.user) ? selectedPetPost.user[0] : selectedPetPost.user;
-              return {
-                id: u?.id || '',
-                username: u?.username || '',
-                avatar_url: u?.avatar_url || undefined,
-                city: u?.city || undefined,
-                state: u?.state || undefined,
-              };
-            })(),
-          }}
-          userRole={userRole}
-          existingRequest={existingRequests[selectedPetPost.pet.id] || null}
-          onClose={() => setSelectedPetPost(null)}
-          onAdopt={() => {
-            const postUser = Array.isArray(selectedPetPost.user) ? selectedPetPost.user[0] : selectedPetPost.user;
-            setSelectedPetPost(null);
-            setShowAdoptModal({
-              pet: {
-                ...selectedPetPost.pet!,
-                post: {
-                  description: selectedPetPost.description,
-                  media_urls: selectedPetPost.media_urls as string[],
-                  tags: selectedPetPost.tags || [],
-                },
-              },
-              shelterUser: postUser,
-            });
-          }}
-        />
       )}
 
       {/* Adopt Pet Modal — same flow as shelter profile */}

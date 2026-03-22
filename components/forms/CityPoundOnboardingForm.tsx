@@ -93,6 +93,9 @@ export function CityPoundOnboardingForm({
         console.error(result.error);
       } else {
         notify.success({ title: 'Registration complete', description: 'Your DVMF profile has been submitted.' });
+        if (typeof result?.redirectTo === 'string') {
+          window.location.href = result.redirectTo;
+        }
       }
     } catch (error) {
       notify.error({ title: 'Onboarding failed', description: 'Failed to submit city pound onboarding form.' });

@@ -7,6 +7,7 @@ import { PetIdCardDownload } from './PetIdCardDownload';
 interface PetDetailModalProps {
   pet: any;
   ownerContext?: any;
+  showIdCard?: boolean;
   userRole?: string;
   existingRequest?: { id: string; status: string } | null;
   onClose: () => void;
@@ -24,6 +25,7 @@ interface PetDetailModalProps {
 export function PetDetailModal({
   pet,
   ownerContext,
+  showIdCard = false,
   userRole,
   existingRequest,
   onClose,
@@ -146,9 +148,11 @@ export function PetDetailModal({
             </div>
           )}
 
-          <div className="mb-4">
-            <PetIdCardDownload pet={pet} ownerContext={ownerContext} />
-          </div>
+          {showIdCard && (
+            <div className="mb-4">
+              <PetIdCardDownload pet={pet} ownerContext={ownerContext} />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
             <InfoTile label="Age" value={formatAge(pet.age_years, pet.age_months)} />

@@ -141,6 +141,9 @@ export function VolunteerOnboardingForm({ userId }: VolunteerOnboardingFormProps
         console.error(result.error);
       } else {
         notify.success({ title: 'Application submitted', description: 'Your volunteer application is now under review.' });
+        if (typeof result?.redirectTo === 'string') {
+          window.location.href = result.redirectTo;
+        }
       }
     } catch (error) {
       notify.error({ title: 'Onboarding failed', description: 'Failed to submit volunteer onboarding form.' });

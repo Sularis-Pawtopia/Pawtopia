@@ -80,6 +80,9 @@ export function NgoOnboardingForm({ userId, existingOrgName }: NgoOnboardingForm
         console.error(result.error);
       } else {
         notify.success({ title: 'Registration complete', description: 'Your NGO profile has been submitted.' });
+        if (typeof result?.redirectTo === 'string') {
+          window.location.href = result.redirectTo;
+        }
       }
     } catch (error) {
       notify.error({ title: 'Onboarding failed', description: 'Failed to submit NGO onboarding form.' });

@@ -15,7 +15,7 @@ interface ProfileContentProps {
 }
 
 export function ProfileContent({ profile }: ProfileContentProps) {
-  const isShelter = profile.role === 'shelter';
+  const isShelter = profile.role === 'shelter' || profile.role === 'dvmf';
   const isAdopter = profile.role === 'adopter';
   const isPersonalPetRole = ['adopter', 'volunteer', 'regular_user'].includes(profile.role);
   const isOwner = profile.isOwner;

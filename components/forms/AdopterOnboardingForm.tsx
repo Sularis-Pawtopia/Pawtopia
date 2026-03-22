@@ -335,8 +335,9 @@ export function AdopterOnboardingForm() {
       } else {
         setSubmitSuccess(true);
         notify.success({ title: 'Profile submitted', description: 'Your adopter profile has been saved.' });
+        const redirectTo = typeof result?.redirectTo === 'string' ? result.redirectTo : '/dashboard';
         setTimeout(() => {
-          window.location.href = '/dashboard';
+          window.location.href = redirectTo;
         }, 1500);
       }
     } catch (err: any) {
@@ -418,13 +419,10 @@ export function AdopterOnboardingForm() {
         </div>
       )}
 
-      {/* Logo Placeholder */}
+      {/* Pawtopia Logo */}
       <div className="flex justify-center mb-6">
-        <div className="w-20 h-20 bg-primary-50 border-2 border-dashed border-primary-300 rounded-xl flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-8 h-8 bg-primary-200 rounded-lg mx-auto mb-1"></div>
-            <span className="text-[10px] text-primary-600 font-medium">Logo</span>
-          </div>
+        <div className="w-20 h-20 rounded-xl border border-primary-200 bg-primary-50 flex items-center justify-center p-2">
+          <img src="/pawtopia-logo.png" alt="Pawtopia logo" className="w-full h-full object-contain" />
         </div>
       </div>
 

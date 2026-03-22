@@ -98,7 +98,8 @@ export function RegularUserOnboardingForm({ userId }: RegularUserOnboardingFormP
         notify.error({ title: 'Onboarding failed', description: result.error });
       } else {
         notify.success({ title: 'Profile setup complete', description: 'Welcome to your dashboard.' });
-        router.push('/dashboard');
+        const redirectTo = typeof result?.redirectTo === 'string' ? result.redirectTo : '/dashboard';
+        router.push(redirectTo);
       }
     } catch (err) {
       const message = 'An unexpected error occurred';

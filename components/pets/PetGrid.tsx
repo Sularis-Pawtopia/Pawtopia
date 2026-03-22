@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Heart, MapPin, Edit, PawPrint } from 'lucide-react';
-import { PetDetailModal } from './PetDetailModal';
-import { AdoptionApplicationModal } from './AdoptionApplicationModal';
 import { createClient } from '@/lib/supabase/client';
 
 interface Pet {
@@ -55,10 +53,7 @@ interface PetGridProps {
 }
 
 export function PetGrid({ pets, isOwner, userRole, userId, onPetClick }: PetGridProps) {
-  const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
-  const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [existingRequests, setExistingRequests] = useState<Record<string, { id: string; status: string } | null>>({});
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Fetch existing adoption requests for the current user
   useEffect(() => {
@@ -101,39 +96,11 @@ export function PetGrid({ pets, isOwner, userRole, userId, onPetClick }: PetGrid
       window.location.href = `/shelter/pets/${pet.id}/edit`;
       return;
     }
-    setSelectedPet(pet);
-  };
-
-  const handleAdopt = () => {
-    setShowApplicationModal(true);
-  };
-
-  const handleApplicationSuccess = () => {
-    setShowApplicationModal(false);
-    if (selectedPet) {
-      setExistingRequests((prev) => ({
-        ...prev,
-        [selectedPet.id]: { id: 'new', status: 'pending' },
-      }));
-      setSuccessMessage(`Your adoption request for ${selectedPet.name} has been submitted! The shelter will review your application.`);
-      setSelectedPet(null);
-      setTimeout(() => setSuccessMessage(null), 5000);
-    }
+    window.location.href = `/companions/${pet.id}/post`;
   };
 
   return (
     <>
-      {/* Success Message */}
-      {successMessage && (
-        <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
-          <div className="text-2xl">🎉</div>
-          <div>
-            <p className="text-green-800 font-medium">Application Sent!</p>
-            <p className="text-green-700 text-sm mt-1">{successMessage}</p>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {pets.length === 0 ? (
           <div className="col-span-full text-center py-12">
@@ -254,12 +221,12 @@ export function PetGrid({ pets, isOwner, userRole, userId, onPetClick }: PetGrid
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedPet(pet);
+                            window.location.href = `/companions/${pet.id}/post`;
                           }}
                           className="w-full py-2 bg-green-50 text-green-700 text-sm font-medium rounded-lg hover:bg-green-100 transition flex items-center justify-center gap-1.5"
                         >
                           <PawPrint className="w-4 h-4" />
-                          View & Adopt
+                          Open Post
                         </button>
                       ) : (
                         <div className="group/tooltip relative">
@@ -283,28 +250,6 @@ export function PetGrid({ pets, isOwner, userRole, userId, onPetClick }: PetGrid
           })
         )}
       </div>
-
-      {/* Pet Detail Modal */}
-      {selectedPet && !showApplicationModal && (
-        <PetDetailModal
-          pet={selectedPet}
-          userRole={userRole}
-          existingRequest={existingRequests[selectedPet.id] || null}
-          onClose={() => setSelectedPet(null)}
-          onAdopt={handleAdopt}
-        />
-      )}
-
-      {/* Adoption Application Modal */}
-      {showApplicationModal && selectedPet && (
-        <AdoptionApplicationModal
-          petId={selectedPet.id}
-          petName={selectedPet.name}
-          shelterName={selectedPet.shelter?.shelter_profile?.shelter_name || selectedPet.shelter?.username}
-          onClose={() => setShowApplicationModal(false)}
-          onSuccess={handleApplicationSuccess}
-        />
-      )}
     </>
   );
 }

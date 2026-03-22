@@ -2,7 +2,6 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import type { AdopterProfileFormData, ShelterProfileFormData } from '@/lib/validations';
 
 // Volunteer onboarding types
@@ -93,7 +92,7 @@ export async function submitVolunteerOnboarding(
   }
 
   revalidatePath('/dashboard');
-  redirect('/dashboard?onboarding=volunteer-submitted');
+  return { success: true, redirectTo: '/dashboard?onboarding=volunteer-submitted' };
 }
 
 export async function submitNgoOnboarding(
@@ -169,7 +168,7 @@ export async function submitNgoOnboarding(
   }
 
   revalidatePath('/dashboard');
-  redirect('/dashboard');
+  return { success: true, redirectTo: '/dashboard' };
 }
 
 export async function submitCityPoundOnboarding(
@@ -256,7 +255,7 @@ export async function submitCityPoundOnboarding(
   }
 
   revalidatePath('/dvmf');
-  redirect('/dvmf');
+  return { success: true, redirectTo: '/dvmf' };
 }
 
 // New adopter onboarding data type
@@ -372,7 +371,7 @@ export async function submitAdopterOnboarding(
   }
 
   revalidatePath('/dashboard');
-  redirect('/dashboard');
+  return { success: true, redirectTo: '/dashboard' };
 }
 
 export async function submitShelterOnboarding(
@@ -564,5 +563,5 @@ export async function submitRegularUserOnboarding(
   }
 
   revalidatePath('/dashboard');
-  redirect('/dashboard?onboarding=complete');
+  return { success: true, redirectTo: '/dashboard?onboarding=complete' };
 }

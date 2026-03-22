@@ -13,7 +13,7 @@ export function ShelterProfileInfo({ profile }: ShelterProfileInfoProps) {
   if (!p) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-8 text-center text-gray-500">
-        <p>This shelter hasn&apos;t completed their profile yet.</p>
+        <p>This organization hasn&apos;t completed their profile yet.</p>
       </div>
     );
   }

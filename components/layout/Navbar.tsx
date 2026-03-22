@@ -6,8 +6,8 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { callApiAction } from '@/lib/api/action-client';
 import { useSidebar } from './SidebarContext';
 import {
-  Home, Heart, Calendar, MapPin, BookOpen,
-  Menu, X, Bell, PawPrint, Settings, LogOut, BarChart3, ClipboardList, Stethoscope,
+  Home, Heart, Calendar, MapPin, BookOpen, 
+  Menu, X, Bell, Settings, LogOut, BarChart3, ClipboardList, Stethoscope,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -129,7 +129,7 @@ export function Navbar({ user }: NavbarProps) {
               href={user.role === 'shelter' ? '/shelter' : user.role === 'dvmf' ? '/dvmf' : '/dashboard'}
               className="flex items-center gap-2"
             >
-              <PawPrint className="w-8 h-8 text-primary-500" />
+              <img src="/pawtopia-logo.png" alt="Pawtopia Logo" className="w-6 h-6" />
               <span className="text-xl font-bold text-gray-900 hidden md:inline">
                 Pawtopia
               </span>

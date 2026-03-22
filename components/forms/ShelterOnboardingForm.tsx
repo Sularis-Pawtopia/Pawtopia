@@ -323,13 +323,10 @@ export function ShelterOnboardingForm() {
         </div>
       )}
 
-      {/* Logo Placeholder */}
+      {/* Pawtopia Logo */}
       <div className="flex justify-center mb-8">
-        <div className="w-24 h-24 bg-primary-50 border-2 border-dashed border-primary-300 rounded-xl flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-8 h-8 bg-primary-200 rounded-lg mx-auto mb-2"></div>
-            <span className="text-xs text-primary-600 font-medium">Logo</span>
-          </div>
+        <div className="w-24 h-24 bg-primary-50 border border-primary-200 rounded-xl flex items-center justify-center p-2">
+          <img src="/pawtopia-logo.png" alt="Pawtopia logo" className="w-full h-full object-contain" />
         </div>
       </div>
 

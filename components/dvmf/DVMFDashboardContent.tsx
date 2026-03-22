@@ -222,6 +222,7 @@ export function DvmfDashboardContent({
       {selectedDvmfPet && (
         <PetDetailModal
           pet={selectedDvmfPet}
+          showIdCard
           userRole="dvmf"
           showAdoptSection={false}
           onEdit={() => {

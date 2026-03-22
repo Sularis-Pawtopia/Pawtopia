@@ -63,20 +63,18 @@ export async function getUserProfile(userId: string) {
         .eq('user_id', userId)
         .single();
 
-      // Strip private fields if not owner
+      // Strip sensitive fields for all non-owners (including shelters and DVMF).
       if (adopterProfile && !isOwner) {
-        const {
-          home_photos,
-          valid_id_urls,
-          alt_first_name,
-          alt_last_name,
-          alt_mi,
-          alt_birth_date,
-          alt_relationship,
-          alt_contact_number,
-          ...publicFields
-        } = adopterProfile;
-        profileData = publicFields;
+        profileData = {
+          first_name: adopterProfile.first_name,
+          last_name: adopterProfile.last_name,
+          mi: adopterProfile.mi,
+          email: adopterProfile.email,
+          gender: adopterProfile.gender,
+          social_media_link: adopterProfile.social_media_link,
+          looking_to_adopt: adopterProfile.looking_to_adopt,
+          first_time_adopter: adopterProfile.first_time_adopter,
+        };
       } else {
         profileData = adopterProfile;
       }

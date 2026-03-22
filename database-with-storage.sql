@@ -410,11 +410,11 @@ CREATE POLICY "Users can update own shelter profile" ON shelter_profiles
 -- ADOPTER PROFILES POLICIES
 -- =============================================
 
--- Adopter profiles are viewable by the user and shelters
-CREATE POLICY "Adopter profiles viewable by user and shelters" ON adopter_profiles
+-- Adopter profiles are viewable by the user, shelters, and DVMF organizers
+CREATE POLICY "Adopter profiles viewable by user, shelters, and dvmf" ON adopter_profiles
   FOR SELECT USING (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'shelter')
+    EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('shelter', 'dvmf'))
   );
 
 -- Users can create their own adopter profile

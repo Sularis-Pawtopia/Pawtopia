@@ -17,11 +17,44 @@ export function EventCommentsPanel({ postId, currentUserId, initialComments = []
   const [input, setInput] = useState('');
   const [pending, setPending] = useState(false);
 
+  const normalizeComment = (comment: any) => ({
+    ...comment,
+    user: Array.isArray(comment?.user) ? comment.user[0] : comment?.user,
+  });
+
+  const sortByCreatedAt = (items: any[]) =>
+    [...items].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  useEffect(() => {
+    setComments(initialComments);
+  }, [initialComments, postId]);
+
   useEffect(() => {
     const supabase = createClient();
 
+    const refreshComments = async () => {
+      const { data } = await supabase
+        .from('comments')
+        .select('*, user:users(id, username, avatar_url)')
+        .eq('post_id', postId)
+        .order('created_at', { ascending: true });
+
+      if (!data) return;
+      setComments(sortByCreatedAt(data.map(normalizeComment)));
+    };
+
+    const timer = setInterval(refreshComments, 2000);
+    refreshComments();
+
+    return () => clearInterval(timer);
+  }, [postId]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channelName = `event-comments-${postId}-${Math.random().toString(36).slice(2, 8)}`;
+
     const channel = supabase
-      .channel(`event-comments-${postId}`)
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -48,17 +81,14 @@ export function EventCommentsPanel({ postId, currentUserId, initialComments = []
 
           if (!data) return;
 
-          const normalized = {
-            ...data,
-            user: Array.isArray(data.user) ? data.user[0] : data.user,
-          };
+          const normalized = normalizeComment(data);
 
           setComments((prev) => {
             const index = prev.findIndex((comment) => comment.id === normalized.id);
-            if (index === -1) return [...prev, normalized];
+            if (index === -1) return sortByCreatedAt([...prev, normalized]);
             const next = [...prev];
             next[index] = normalized;
-            return next;
+            return sortByCreatedAt(next);
           });
         }
       )
@@ -79,6 +109,15 @@ export function EventCommentsPanel({ postId, currentUserId, initialComments = []
       setPending(false);
       return;
     }
+
+    if (createResult.data) {
+      const created = normalizeComment(createResult.data);
+      setComments((prev) => {
+        if (prev.some((comment) => comment.id === created.id)) return prev;
+        return sortByCreatedAt([...prev, created]);
+      });
+    }
+
     setPending(false);
     setInput('');
   };
