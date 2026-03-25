@@ -5,8 +5,10 @@ import { useMemo, useState } from 'react';
 type FilterMonth = 'all' | number;
 
 interface DvmfInsightsDashboardProps {
-  events: any[];
   records: any[];
+  adoptionRequests: any[];
+  healthcareRequests: any[];
+  events?: any[];
 }
 
 const monthFormatter = new Intl.DateTimeFormat('en-US', { month: 'short' });
@@ -18,25 +20,40 @@ function parseDate(value?: string) {
   return date;
 }
 
-export function DvmfInsightsDashboard({ events, records }: DvmfInsightsDashboardProps) {
+export function DvmfInsightsDashboard({
+  records,
+  adoptionRequests,
+  healthcareRequests,
+  events = [],
+}: DvmfInsightsDashboardProps) {
   const [selectedYear, setSelectedYear] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState<FilterMonth>('all');
 
   const yearOptions = useMemo(() => {
     const years = new Set<number>();
 
-    events.forEach((event) => {
-      const date = parseDate(event?.event_date);
-      if (date) years.add(date.getFullYear());
-    });
-
     records.forEach((record) => {
       const date = parseDate(record?.created_at);
       if (date) years.add(date.getFullYear());
     });
 
+    adoptionRequests.forEach((request) => {
+      const date = parseDate(request?.created_at);
+      if (date) years.add(date.getFullYear());
+    });
+
+    healthcareRequests.forEach((request) => {
+      const date = parseDate(request?.created_at);
+      if (date) years.add(date.getFullYear());
+    });
+
+    events.forEach((event) => {
+      const date = parseDate(event?.event_date);
+      if (date) years.add(date.getFullYear());
+    });
+
     return Array.from(years).sort((a, b) => b - a);
-  }, [events, records]);
+  }, [records, adoptionRequests, healthcareRequests, events]);
 
   const dateInFilter = (value?: string) => {
     const date = parseDate(value);
@@ -48,61 +65,104 @@ export function DvmfInsightsDashboard({ events, records }: DvmfInsightsDashboard
     return matchesYear && matchesMonth;
   };
 
-  const filteredEvents = useMemo(
-    () => events.filter((event) => dateInFilter(event?.event_date)),
-    [events, selectedYear, selectedMonth]
-  );
-
   const filteredRecords = useMemo(
     () => records.filter((record) => dateInFilter(record?.created_at)),
     [records, selectedYear, selectedMonth]
   );
 
-  const now = new Date();
-  const totalParticipants = filteredEvents.reduce((sum, event) => sum + (Number(event?.attendee_count) || 0), 0);
-  const totalWaitlisted = filteredEvents.reduce((sum, event) => sum + (Number(event?.waitlist_count) || 0), 0);
+  const filteredAdoptionRequests = useMemo(
+    () => adoptionRequests.filter((request) => dateInFilter(request?.created_at)),
+    [adoptionRequests, selectedYear, selectedMonth]
+  );
 
-  const upcomingEvents = filteredEvents.filter((event) => {
-    const date = parseDate(event?.event_date);
-    return date ? date >= now : false;
+  const getHealthcareServiceType = (request: any) => {
+    return String(request?.service?.service_type || request?.service_type || '').toLowerCase();
+  };
+
+  const getHealthcareCompletionDate = (request: any) => {
+    return request?.completed_at || request?.updated_at || request?.created_at;
+  };
+
+  const completedHealthcareRequests = useMemo(
+    () =>
+      healthcareRequests.filter((request) => {
+        const status = String(request?.status || '').toLowerCase();
+        if (status !== 'completed') return false;
+        return dateInFilter(getHealthcareCompletionDate(request));
+      }),
+    [healthcareRequests, selectedYear, selectedMonth]
+  );
+
+  const fullyDocumentedWelfareCases = filteredRecords.filter((record) => {
+    const notes = String(record?.notes || '').toLowerCase();
+    return Boolean(record?.is_vaccinated) && Boolean(record?.is_spayed_neutered) && notes.includes('deworm');
   }).length;
 
-  const vaccinatedRecords = filteredRecords.filter((record) => {
-    const status = String(record?.vaccination_status || '').toLowerCase();
-    return record?.is_vaccinated === true || status.includes('up') || status.includes('complete');
+  const adoptionApproved = filteredAdoptionRequests.filter((request) => {
+    const status = String(request?.status || '').toLowerCase();
+    return status === 'approved' || status === 'completed';
   }).length;
 
-  const sterilizedRecords = filteredRecords.filter((record) => {
-    const status = String(record?.spay_neuter_status || '').toLowerCase();
-    return record?.is_spayed_neutered === true || status.includes('done') || status.includes('yes');
-  }).length;
+  const healthcareCompleted = completedHealthcareRequests.length;
 
-  const monthlyParticipants = useMemo(() => {
-    const values = Array.from({ length: 12 }, () => 0);
+  const completedByService = {
+    spay_neuter: completedHealthcareRequests.filter((request) => getHealthcareServiceType(request) === 'spay_neuter').length,
+    vaccination: completedHealthcareRequests.filter((request) => getHealthcareServiceType(request) === 'vaccination').length,
+    deworming: completedHealthcareRequests.filter((request) => getHealthcareServiceType(request) === 'deworming').length,
+  };
 
-    filteredEvents.forEach((event) => {
-      const date = parseDate(event?.event_date);
+  const monthlyWelfareInterventions = useMemo(() => {
+    const vaccinated = Array.from({ length: 12 }, () => 0);
+    const sterilized = Array.from({ length: 12 }, () => 0);
+    const dewormed = Array.from({ length: 12 }, () => 0);
+
+    completedHealthcareRequests.forEach((request) => {
+      const date = parseDate(getHealthcareCompletionDate(request));
       if (!date) return;
-      values[date.getMonth()] += Number(event?.attendee_count) || 0;
+
+      const month = date.getMonth();
+      const serviceType = getHealthcareServiceType(request);
+
+      if (serviceType === 'vaccination') vaccinated[month] += 1;
+      if (serviceType === 'spay_neuter') sterilized[month] += 1;
+      if (serviceType === 'deworming') dewormed[month] += 1;
     });
 
-    return values;
-  }, [filteredEvents]);
+    return { vaccinated, sterilized, dewormed };
+  }, [completedHealthcareRequests]);
 
-  const monthlyRegistryEntries = useMemo(() => {
-    const values = Array.from({ length: 12 }, () => 0);
+  const monthlyAdoptionOutcomes = useMemo(() => {
+    const approved = Array.from({ length: 12 }, () => 0);
+    const pending = Array.from({ length: 12 }, () => 0);
+    const rejected = Array.from({ length: 12 }, () => 0);
 
-    filteredRecords.forEach((record) => {
-      const date = parseDate(record?.created_at);
+    filteredAdoptionRequests.forEach((request) => {
+      const date = parseDate(request?.created_at);
       if (!date) return;
-      values[date.getMonth()] += 1;
+      const month = date.getMonth();
+      const status = String(request?.status || '').toLowerCase();
+
+      if (status === 'approved' || status === 'completed') approved[month] += 1;
+      else if (status === 'rejected') rejected[month] += 1;
+      else pending[month] += 1;
     });
 
-    return values;
-  }, [filteredRecords]);
+    return { approved, pending, rejected };
+  }, [filteredAdoptionRequests]);
 
-  const participantMax = Math.max(...monthlyParticipants, 1);
-  const registryMax = Math.max(...monthlyRegistryEntries, 1);
+  const welfareBarMax = Math.max(
+    ...monthlyWelfareInterventions.vaccinated,
+    ...monthlyWelfareInterventions.sterilized,
+    ...monthlyWelfareInterventions.dewormed,
+    1
+  );
+
+  const adoptionBarMax = Math.max(
+    ...monthlyAdoptionOutcomes.approved,
+    ...monthlyAdoptionOutcomes.pending,
+    ...monthlyAdoptionOutcomes.rejected,
+    1
+  );
 
   return (
     <div className="space-y-6">
@@ -142,70 +202,98 @@ export function DvmfInsightsDashboard({ events, records }: DvmfInsightsDashboard
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500">Total Events</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{filteredEvents.length}</p>
+          <p className="text-xs text-gray-500">Registered Pets</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{filteredRecords.length}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500">Upcoming Events</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{upcomingEvents}</p>
+          <p className="text-xs text-gray-500">Adoptions Approved</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{adoptionApproved}</p>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500">Participants</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalParticipants}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500">Waitlisted</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{totalWaitlisted}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500">Vaccinated Records</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{vaccinatedRecords}</p>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <p className="text-xs text-gray-500">Sterilized Records</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{sterilizedRecords}</p>
+          <p className="text-xs text-gray-500">Fully Documented Care</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{fullyDocumentedWelfareCases}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Participants by Month</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Welfare Interventions by Month</h3>
           <div className="space-y-2">
-            {monthlyParticipants.map((value, index) => (
-              <div key={index} className="grid grid-cols-[40px_1fr_50px] items-center gap-2 text-xs">
-                <span className="text-gray-500">{monthFormatter.format(new Date(2024, index, 1))}</span>
-                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                  <div
-                    className="h-full bg-primary-500 rounded-full"
-                    style={{ width: `${(value / participantMax) * 100}%` }}
-                  />
+            {Array.from({ length: 12 }).map((_, index) => {
+              const vax = monthlyWelfareInterventions.vaccinated[index];
+              const spay = monthlyWelfareInterventions.sterilized[index];
+              const deworm = monthlyWelfareInterventions.dewormed[index];
+              return (
+                <div key={index} className="grid grid-cols-[40px_1fr_84px] items-center gap-2 text-xs">
+                  <span className="text-gray-500">{monthFormatter.format(new Date(2024, index, 1))}</span>
+                  <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                    <div className="h-full bg-emerald-500" style={{ width: `${(vax / welfareBarMax) * 100}%` }} />
+                    <div className="h-full bg-blue-500" style={{ width: `${(spay / welfareBarMax) * 100}%` }} />
+                    <div className="h-full bg-amber-500" style={{ width: `${(deworm / welfareBarMax) * 100}%` }} />
+                  </div>
+                  <span className="text-gray-700 text-right">{vax + spay + deworm}</span>
                 </div>
-                <span className="text-gray-700 text-right">{value}</span>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+          <div className="mt-3 flex gap-3 text-[11px] text-gray-600">
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />Vaccinated</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />Spayed/Neutered</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />Dewormed</span>
           </div>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Registry Entries by Month</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Adoption Pipeline by Month</h3>
           <div className="space-y-2">
-            {monthlyRegistryEntries.map((value, index) => (
-              <div key={index} className="grid grid-cols-[40px_1fr_50px] items-center gap-2 text-xs">
-                <span className="text-gray-500">{monthFormatter.format(new Date(2024, index, 1))}</span>
-                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                  <div
-                    className="h-full bg-indigo-500 rounded-full"
-                    style={{ width: `${(value / registryMax) * 100}%` }}
-                  />
+            {Array.from({ length: 12 }).map((_, index) => {
+              const approved = monthlyAdoptionOutcomes.approved[index];
+              const pending = monthlyAdoptionOutcomes.pending[index];
+              const rejected = monthlyAdoptionOutcomes.rejected[index];
+              return (
+                <div key={index} className="grid grid-cols-[40px_1fr_84px] items-center gap-2 text-xs">
+                  <span className="text-gray-500">{monthFormatter.format(new Date(2024, index, 1))}</span>
+                  <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+                    <div className="h-full bg-emerald-500" style={{ width: `${(approved / adoptionBarMax) * 100}%` }} />
+                    <div className="h-full bg-yellow-500" style={{ width: `${(pending / adoptionBarMax) * 100}%` }} />
+                    <div className="h-full bg-rose-500" style={{ width: `${(rejected / adoptionBarMax) * 100}%` }} />
+                  </div>
+                  <span className="text-gray-700 text-right">{approved + pending + rejected}</span>
                 </div>
-                <span className="text-gray-700 text-right">{value}</span>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+          <div className="mt-3 flex gap-3 text-[11px] text-gray-600">
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />Approved</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" />Pending</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-rose-500" />Rejected</span>
           </div>
         </div>
       </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">Healthcare Completed</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{healthcareCompleted}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">Completed Spay/Neuter</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{completedByService.spay_neuter}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">Completed Vaccinations</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{completedByService.vaccination}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <p className="text-xs text-gray-500">Completed Deworming</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{completedByService.deworming}</p>
+        </div>
+      </div>
+
+      
+
     </div>
   );
 }

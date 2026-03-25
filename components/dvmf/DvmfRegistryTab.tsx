@@ -548,15 +548,28 @@ export function DvmfRegistryTab({ initialRecords }: DvmfRegistryTabProps) {
             gender: viewingRecord.sex,
             size: 'recorded',
             status: 'registered',
+            birth_date: viewingRecord.birth_date,
+            last_vaccination_date: viewingRecord.last_vaccination_date,
+            owner_name: viewingRecord.owner_name,
+            owner_address: viewingRecord.owner_address,
             is_vaccinated: viewingRecord.is_vaccinated,
             is_spayed_neutered: viewingRecord.is_spayed_neutered,
             medical_history: viewingRecord.notes || undefined,
+            _registry: {
+              birth_date: viewingRecord.birth_date,
+              last_vaccination_date: viewingRecord.last_vaccination_date,
+            },
             post: {
               description: viewingRecord.notes || `Owner: ${viewingRecord.owner_name} | Address: ${viewingRecord.owner_address}`,
               media_urls: viewingRecord.pet_photo_url ? [viewingRecord.pet_photo_url] : [],
               tags: ['DVMF Registry'],
             },
           }}
+          ownerContext={{
+            full_name: viewingRecord.owner_name,
+            address: viewingRecord.owner_address,
+          }}
+          showIdCard
           userRole="dvmf"
           showAdoptSection={false}
           onEdit={() => {
